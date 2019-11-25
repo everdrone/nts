@@ -1,0 +1,3 @@
+youtube_dl
+beautifulsoup4
+mutagen
