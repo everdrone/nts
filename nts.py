@@ -20,20 +20,29 @@ def download(url):
     title_box = bs.select('div.bio__title')[0]
     # textual data
     title = title_box.div.h1.text
+    title = re.sub('\/|\:', '-', title)  # safe for directories
+    title = title.strip()
     station = title_box.div.div.h2.find(text=True, recursive=False).strip()
-    date = title_box.div.div.h2.span.text.split(',')[1].strip()
+    # sometimes it's just the date
+    date = title_box.div.div.h2.span.text
+    if ',' in date:
+        date = date.split(',')[1].strip()
+    else:
+        date = date.strip()
     date = datetime.datetime.strptime(date, '%d.%m.%y')
     # artists
     artists = []
-    artist_box = bs.select('.bio-artists')[0]
-    for anchor in artist_box.find_all('a'):
-        artists.append(anchor.text.strip())
+    artist_box = bs.select('.bio-artists')
+    if artist_box:
+        artist_box = artist_box[0]
+        for anchor in artist_box.find_all('a'):
+            artists.append(anchor.text.strip())
 
     # genres
     genres = []
     genres_box = bs.select('.episode-genres')[0]
     for anchor in genres_box.find_all('a'):
-        genres.append(anchor.text)
+        genres.append(anchor.text.strip())
     # tracklist
     tracks = []
     tracks_box = bs.select('.tracklist')[0]
