@@ -9,6 +9,11 @@ import requests
 import youtube_dl
 from bs4 import BeautifulSoup
 
+# defaults to darwin
+download_dir = '~/Downloads'
+if sys.platform.startswith('win32'):
+    download_dir = '%USERPROFILE\\Downloads\\'
+# expand it
 download_dir = os.path.expanduser('~/Downloads')
 
 
@@ -82,6 +87,7 @@ def download(url, save=True, save_dir=download_dir):
                 cover = mutagen.mp4.MP4Cover(image, img_format)
                 audio['covr'] = [cover]
                 audio.save()
+    return parsed
 
 
 def parse_nts_data(bs):
@@ -161,6 +167,9 @@ def parse_artists(title, bs):
     if parsed_artists:
         more_people = re.sub(
             r'^.+?(?:w\/|with)(.+?)(?=and|,|&|\s-\s)', '', title, re.IGNORECASE)
+        if more_people == title:
+            # no more people
+            more_people = ''
         if not re.match(r'^\s*-\s', more_people):
             # split if separators are encountered
             more_people = re.split(r',|and|&', more_people, re.IGNORECASE)
@@ -169,6 +178,7 @@ def parse_artists(title, bs):
                 for mp in more_people:
                     mp.strip()
                     parsed_artists.append(mp)
+    parsed_artists = list(filter(None, parsed_artists))
     # artists
     artists = []
     artist_box = bs.select('.bio-artists')
