@@ -1,12 +1,13 @@
-import re
-import os
-import requests
-import urllib
 import datetime
+import os
+import re
 import sys
-from bs4 import BeautifulSoup
-import youtube_dl
+import urllib
+
 import mutagen
+import requests
+import youtube_dl
+from bs4 import BeautifulSoup
 
 download_dir = os.path.expanduser('~/Downloads')
 
