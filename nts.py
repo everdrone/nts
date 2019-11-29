@@ -3,6 +3,7 @@ import os
 import re
 import sys
 import urllib
+import json
 
 import mutagen
 import requests
@@ -205,31 +206,53 @@ def parse_title(title_box):
     return title, safe_title
 
 
+def get_episodes_of_show(show_name):
+    print(show_name)
+    api_url = f'https://www.nts.live/api/v2/shows/{show_name}/episodes?offset=0&limit=1000'
+    res = requests.get(api_url)
+    try:
+        res = res.json()
+    except:
+        print('error parsing api response json')
+        exit(1)
+    output = []
+    if res['results']:
+        res = res['results']
+        for ep in res:
+            if ep['status'] == 'published':
+                alias = ep['episode_alias']
+                output.append(
+                    f'https://www.nts.live/shows/{show_name}/episodes/{alias}')
+    return output
+
+
 def main():
-    show_regex = r'.*nts\.live\/shows.+(\/episodes)\/.+'
+    episode_regex = r'.*nts\.live\/shows.+(\/episodes)\/.+'
+    show_regex = r'.*nts\.live\/shows\/([^/]+)$'
 
     if len(sys.argv) < 2:
         print("please pass an URL or a file containing a list of urls.")
         exit(1)
+
     arg = sys.argv[1]
+    lines = [arg]
+
     if os.path.isfile(arg):
         # read list
         file = ""
         with open(arg, 'r') as f:
             file = f.read()
         lines = filter(None, file.split('\n'))
-        for line in lines:
-            match = re.match(show_regex, line)
-            if match:
-                download(line.strip())
-            else:
-                print(f'{line} is not an NTS url.')
-    else:
-        match = re.match(show_regex, arg)
-        if match:
-            download(arg.strip())
+
+    for line in lines:
+        match_episode = re.match(episode_regex, line)
+        match_show = re.match(show_regex, line)
+        if match_episode:
+            download(line.strip())
+        elif match_show:
+            lines += get_episodes_of_show(match_show.group(1))
         else:
-            print(f'{arg} is not an NTS url.')
+            print(f'{line} is not an NTS url.')
             exit(1)
 
 
