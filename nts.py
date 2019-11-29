@@ -66,11 +66,18 @@ def download(url, save=True, save_dir=download_dir):
                 # album
                 audio['\xa9alb'] = 'NTS'
                 # artist
-                if not parsed['artists']:
-                    if parsed['parsed_artists']:
-                        audio['\xa9ART'] = "; ".join(parsed['parsed_artists'])
-                else:
-                    audio['\xa9ART'] = "; ".join(parsed['artists'])
+                join_artists = parsed['artists'] + parsed['parsed_artists']
+                all_artists = []
+                presence_set = set()
+                for aa in join_artists:
+                    al = aa.lower()
+                    if al not in presence_set:
+                        presence_set.add(al)
+                        all_artists.append(aa)
+                # add to output data
+                parsed['all_artists'] = all_artists
+                # add to file metadata
+                audio['\xa9ART'] = "; ".join(all_artists)
                 # year
                 audio['\xa9day'] = f'{parsed["date"].year}'
                 # comment
