@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="nts-everdrone",
-    version="1.0.7",
+    version="1.1.0",
     author="Giorgio Tropiano",
     author_email="giorgiotropiano@gmail.com",
     description="NTS Radio downloader tool",
