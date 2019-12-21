@@ -18,7 +18,7 @@ if sys.platform.startswith('win32'):
 download_dir = os.path.expanduser('~/Downloads')
 
 
-def download(url, save=True, save_dir=download_dir):
+def download(url, quiet, save_dir, save=True):
     nts_url = url
     page = requests.get(url).content
     bs = BeautifulSoup(page, 'html.parser')
@@ -46,9 +46,11 @@ def download(url, save=True, save_dir=download_dir):
 
     # download
     if save:
-        print(f'\ndownloading into: {save_dir}\n')
+        if not quiet:
+            print(f'\ndownloading into: {save_dir}\n')
         ydl_opts = {
             'outtmpl': os.path.join(save_dir, f'{file_name}.%(ext)s'),
+            'quiet': quiet
         }
         with youtube_dl.YoutubeDL(ydl_opts) as ydl:
             ydl.download([link])
@@ -58,7 +60,8 @@ def download(url, save=True, save_dir=download_dir):
         for file in files:
             if file.startswith(file_name):
                 # found
-                print(f'adding metadata to {file} ...')
+                if not quiet:
+                    print(f'adding metadata to {file} ...')
                 audio = mutagen.File(os.path.join(save_dir, file))
                 # title
                 audio['\xa9nam'] = f'{parsed["title"]} - {parsed["date"].day:02d}.{parsed["date"].month:02d}.{parsed["date"].year:02d}'
@@ -207,7 +210,6 @@ def parse_title(title_box):
 
 
 def get_episodes_of_show(show_name):
-    print(show_name)
     api_url = f'https://www.nts.live/api/v2/shows/{show_name}/episodes?offset=0&limit=1000'
     res = requests.get(api_url)
     try:
