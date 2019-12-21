@@ -24,16 +24,16 @@ Options:
   -q, --quiet           only print errors
 ```
 
-Just paste the episode url and it will be downloaded in your Downloads folder at `~/Downloads`.
+Just paste the episode url and it will be downloaded in your Downloads folder.
 
 ```sh
-nts https://www.nts.live/shows/lee-gamble/episodes/lee-gamble-7th-october-2019
+nts https://www.nts.live/shows/myshow/episodes/myepisode
 ```
 
 Alternatively, you can pass a show/host url to download all its episodes.
 
 ```sh
-nts https://www.nts.live/shows/team-sesh
+nts https://www.nts.live/shows/myshow
 ```
 
 If you have multiple urls, write them into a file line by line and pass the file to the script.
@@ -41,4 +41,16 @@ Show urls will be expanded and downloaded as well.
 
 ```sh
 nts links.txt
+```
+
+You can also pass files and urls (shows or episodes) at the same time
+
+```sh
+nts links.txt https://www.nts.live/shows/myshow
+```
+
+To change the output directory use the `--out-dir` option, or the `-o` shorthand
+
+```sh
+nts -o ~/Desktop/NTS links.txt
 ```
