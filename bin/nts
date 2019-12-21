@@ -1,0 +1,4 @@
+#!/usr/bin/env python
+
+import nts.downloader as nts
+nts.main()
