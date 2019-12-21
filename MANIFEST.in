@@ -1,0 +1,7 @@
+include *.md
+include license
+include setup.py
+recursive-include nts *
+recursive-include bin *
+global-exclude .DS_Store
+global-exclude *.pyc

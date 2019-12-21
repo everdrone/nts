@@ -1,18 +1,12 @@
 import setuptools
 
-with open('requirements.txt') as f:
-    requirements = f.readlines()
-
-with open("readme.md", "r") as fh:
-    long_description = fh.read()
-
 setuptools.setup(
     name="nts-everdrone",
-    version="1.0.0",
+    version="1.0.7",
     author="Giorgio Tropiano",
     author_email="giorgiotropiano@gmail.com",
     description="NTS Radio downloader tool",
-    long_description=long_description,
+    long_description=open('readme.md').read(),
     long_description_content_type="text/markdown",
     url="https://github.com/everdrone/nts",
     packages=setuptools.find_packages(),
@@ -23,6 +17,10 @@ setuptools.setup(
     ],
     license='MIT',
     scripts=['bin/nts'],
-    install_requires=requirements,
+    install_requires=[
+        'youtube_dl',
+        'beautifulsoup4',
+        'mutagen'
+    ],
     python_requires='>=3.7.5',
 )
