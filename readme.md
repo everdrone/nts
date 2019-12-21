@@ -7,10 +7,22 @@ Downloads [NTS](https://www.nts.live) episodes (with metadata) for offline liste
 First install all the requirements.
 
 ```sh
-pip3 install nts
+pip3 install nts-everdrone
 ```
 
 ## Usage
+
+```
+Usage: nts.py [options] args
+
+Options:
+  -h, --help            show this help message and exit
+  -o DIR, --out-dir=DIR
+                        where the files will be downloaded, defaults to
+                        ~/Downloads on macOS and %USERPROFILE%\Downloads
+  -v, --version         print the version number and quit
+  -q, --quiet           only print errors
+```
 
 Just paste the episode url and it will be downloaded in your Downloads folder at `~/Downloads`.
 

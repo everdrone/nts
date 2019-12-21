@@ -11,20 +11,20 @@ show_regex = r'.*nts\.live\/shows\/([^/]+)$'
 # defaults to darwin
 download_dir = '~/Downloads'
 if sys.platform.startswith('win32'):
-    download_dir = '%USERPROFILE\\Downloads\\'
+    download_dir = '%USERPROFILE%\\Downloads\\'
 # expand it
 download_dir = os.path.expanduser('~/Downloads')
 
 usage = "Usage: %prog [options] args"
 parser = OptionParser(usage=usage)
-parser.add_option("-o", "--output-dir", dest="output_directory", default=download_dir, action="store", type="string",
-                  help="where the files will be downloaded, defaults to ~/Downloads", metavar="DIR")
+parser.add_option("-o", "--out-dir", dest="output_directory", default=download_dir, action="store", type="string",
+                  help="where the files will be downloaded, defaults to ~/Downloads on macOS and %USERPROFILE%\\Downloads", metavar="DIR")
 parser.add_option("-v", "--version", default=False,
                   dest="version", action="store_false",
                   help="print the version number and quit")
 parser.add_option("-q", "--quiet", default=False,
                   dest="quiet", action="store_true",
-                  help="print errors only")
+                  help="only print errors")
 
 (options, args) = parser.parse_args()
 
