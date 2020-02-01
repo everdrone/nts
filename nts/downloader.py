@@ -10,7 +10,9 @@ import requests
 import youtube_dl
 from bs4 import BeautifulSoup
 
-__version__ = '1.1.2'
+
+__version__ = '1.1.3'
+
 
 # defaults to darwin
 download_dir = '~/Downloads'

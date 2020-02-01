@@ -20,7 +20,7 @@ parser = OptionParser(usage=usage)
 parser.add_option("-o", "--out-dir", dest="output_directory", default=download_dir, action="store", type="string",
                   help="where the files will be downloaded, defaults to ~/Downloads on macOS and %USERPROFILE%\\Downloads", metavar="DIR")
 parser.add_option("-v", "--version", default=False,
-                  dest="version", action="store_false",
+                  dest="version", action="store_true",
                   help="print the version number and quit")
 parser.add_option("-q", "--quiet", default=False,
                   dest="quiet", action="store_true",
@@ -28,8 +28,9 @@ parser.add_option("-q", "--quiet", default=False,
 
 (options, args) = parser.parse_args()
 
+
 if options.version:
-    print(nts.__version__)
+    print(f'nts {nts.__version__}')
     exit(0)
 
 
