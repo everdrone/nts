@@ -28,15 +28,15 @@ parser.add_option("-q", "--quiet", default=False,
 
 (options, args) = parser.parse_args()
 
+if options.version:
+    print(nts.__version__)
+    exit(0)
+
+
 if len(args) < 1:
     print("please pass an URL or a file containing a list of urls.\n")
     parser.print_help()
     exit(1)
-
-
-if options.version:
-    print(nts.__version__)
-    exit(0)
 
 
 download_dir = os.path.expanduser(options.output_directory)
