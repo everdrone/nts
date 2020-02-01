@@ -34,6 +34,11 @@ if len(args) < 1:
     exit(1)
 
 
+if options.version:
+    print(nts.__version__)
+    exit(0)
+
+
 download_dir = os.path.expanduser(options.output_directory)
 download_dir = os.path.abspath(options.output_directory)
 
