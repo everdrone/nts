@@ -254,7 +254,17 @@ def main():
         exit(1)
 
     arg = sys.argv[1]
-    lines = [arg]
+    line = arg
+
+    match_episode = re.match(episode_regex, line)
+    match_show = re.match(show_regex, line)
+
+    lines = []
+
+    if match_episode:
+        lines += line.strip()
+    elif match_show:
+        lines += get_episodes_of_show(match_show.group(1))
 
     if os.path.isfile(arg):
         # read list
@@ -263,16 +273,12 @@ def main():
             file = f.read()
         lines = filter(None, file.split('\n'))
 
+    if len(lines) == 0:
+        print('Didn\'t find shows to download.')
+        exit (1)
+
     for line in lines:
-        match_episode = re.match(episode_regex, line)
-        match_show = re.match(show_regex, line)
-        if match_episode:
-            download(line.strip())
-        elif match_show:
-            lines += get_episodes_of_show(match_show.group(1))
-        else:
-            print(f'{line} is not an NTS url.')
-            exit(1)
+        download(line, False, download_dir)
 
 
 if __name__ == "__main__":
