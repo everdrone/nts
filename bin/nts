@@ -54,7 +54,8 @@ def url_matcher(url):
             nts.download(url=url, quiet=options.quiet, save_dir=download_dir)
         elif match_sh:
             episodes = nts.get_episodes_of_show(match_sh.group(1))
-            url_matcher(episodes)
+            for ep in episodes:
+                url_matcher(ep)
         else:
             print(f'{url} is not an NTS url.\n')
             parser.print_help()
