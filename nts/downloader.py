@@ -29,24 +29,30 @@ def download(url, quiet, save_dir, save=True):
 
     # guessing there is one
     parsed = parse_nts_data(bs)
-    # safe_title, date, title, artists, parsed_artists, genres = parse_nts_data(bs)
+    # safe_title, date, title, artists, parsed_artists, genres, image_url = parse_nts_data(bs)
 
     button = bs.select('.episode__btn.mixcloud-btn')[0]
     link = button.get('data-src')
     match = re.match(r'https:\/\/www.mixcloud\.com\/NTSRadio.+$', link)
 
-    # get album art
+    # get album art. If the one on mixcloud is available, use it. Otherwise,
+    # fall back to the nts website.
     page = requests.get(link).content
     bs = BeautifulSoup(page, 'html.parser')
-    img = bs.select('div.album-art')[0].img
-    srcset = img.get('srcset').split()
-    img = srcset[-2].split(',')[1]
+    image_type = ''
+    if len(bs.select('div.album-art')) != 0:
+        img = bs.select('div.album-art')[0].img
+        srcset = img.get('srcset').split()
+        img = srcset[-2].split(',')[1]
+        image = urllib.request.urlopen(img)
+        image_type = image.info().get_content_type()
+        image = image.read()
+    elif len(parsed["image_url"]):
+        image = urllib.request.urlopen(parsed["image_url"])
+        image_type = image.info().get_content_type()
+        image = image.read()
 
     file_name = f'{parsed["safe_title"]} - {parsed["date"].year}-{parsed["date"].month}-{parsed["date"].day}'
-
-    image = urllib.request.urlopen(img)
-    image_type = image.info().get_content_type()
-    image = image.read()
 
     # download
     if save:
@@ -93,14 +99,15 @@ def download(url, quiet, save_dir, save=True):
                 # genre
                 audio['\xa9gen'] = parsed['genres'][0]
                 # cover
-                match = re.match(r'jpe?g$', image_type)
-                img_format = None
-                if match:
-                    img_format = mutagen.mp4.AtomDataType.JPEG
-                else:
-                    img_format = mutagen.mp4.AtomDataType.PNG
-                cover = mutagen.mp4.MP4Cover(image, img_format)
-                audio['covr'] = [cover]
+                if image_type != '':
+                    match = re.match(r'jpe?g$', image_type)
+                    img_format = None
+                    if match:
+                        img_format = mutagen.mp4.AtomDataType.JPEG
+                    else:
+                        img_format = mutagen.mp4.AtomDataType.PNG
+                    cover = mutagen.mp4.MP4Cover(image, img_format)
+                    audio['covr'] = [cover]
                 audio.save()
     return parsed
 
@@ -116,6 +123,10 @@ def parse_nts_data(bs):
     artists, parsed_artists = parse_artists(title, bs)
 
     station = title_box.div.div.h2.find(text=True, recursive=False).strip()
+
+    bg_tag = bs.select('section#bg[style]')
+    background_image_regex = r'background-image:url\((.*)\)'
+    image_url = re.match(background_image_regex, bg_tag[0]['style']).groups()[0]
 
     # sometimes it's just the date
     date = title_box.div.div.h2.span.text
@@ -138,7 +149,8 @@ def parse_nts_data(bs):
         'parsed_artists': parsed_artists,
         'genres': genres,
         'station': station,
-        'tracks': tracks
+        'tracks': tracks,
+        'image_url': image_url,
     }
 
 
