@@ -11,7 +11,7 @@ import youtube_dl
 from bs4 import BeautifulSoup
 
 
-__version__ = '1.1.3'
+__version__ = '1.1.4'
 
 
 # defaults to darwin
@@ -127,7 +127,8 @@ def parse_nts_data(bs):
 
     bg_tag = bs.select('section#bg[style]')
     background_image_regex = r'background-image:url\((.*)\)'
-    image_url = re.match(background_image_regex, bg_tag[0]['style']).groups()[0]
+    image_url = re.match(background_image_regex,
+                         bg_tag[0]['style']).groups()[0]
 
     # sometimes it's just the date
     date = title_box.div.div.h2.span.text
@@ -275,7 +276,7 @@ def main():
 
     if len(lines) == 0:
         print('Didn\'t find shows to download.')
-        exit (1)
+        exit(1)
 
     for line in lines:
         download(line, False, download_dir)
