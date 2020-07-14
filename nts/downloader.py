@@ -97,7 +97,8 @@ def download(url, quiet, save_dir, save=True):
                 # comment
                 audio['\xa9cmt'] = nts_url
                 # genre
-                audio['\xa9gen'] = parsed['genres'][0]
+                if len(parsed['genres']) != 0:
+                    audio['\xa9gen'] = parsed['genres'][0]
                 # cover
                 if image_type != '':
                     match = re.match(r'jpe?g$', image_type)
