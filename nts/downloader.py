@@ -228,21 +228,30 @@ def parse_title(title_box):
 
 
 def get_episodes_of_show(show_name):
-    api_url = f'https://www.nts.live/api/v2/shows/{show_name}/episodes?offset=0&limit=1000'
-    res = requests.get(api_url)
-    try:
-        res = res.json()
-    except:
-        print('error parsing api response json')
-        exit(1)
+    offset = 0
+    count = 0
     output = []
-    if res['results']:
-        res = res['results']
-        for ep in res:
-            if ep['status'] == 'published':
-                alias = ep['episode_alias']
-                output.append(
-                    f'https://www.nts.live/shows/{show_name}/episodes/{alias}')
+    while True:
+        api_url = f'https://www.nts.live/api/v2/shows/{show_name}/episodes?offset={offset}'
+        res = requests.get(api_url)
+        try:
+            res = res.json()
+        except:
+            print('error parsing api response json')
+            exit(1)
+        if count == 0:
+            count = int(res['metadata']['resultset']['count'])
+        offset += int(res['metadata']['resultset']['limit'])
+        if res['results']:
+            res = res['results']
+            for ep in res:
+                if ep['status'] == 'published':
+                    alias = ep['episode_alias']
+                    output.append(
+                        f'https://www.nts.live/shows/{show_name}/episodes/{alias}')
+        if len(output) == count:
+            break
+
     return output
 
 
