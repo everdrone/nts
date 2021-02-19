@@ -15,7 +15,7 @@ pip3 install nts-everdrone
 ## Usage
 
 ```
-Usage: nts.py [options] args
+Usage: nts [options] args
 
 Options:
   -h, --help            show this help message and exit
