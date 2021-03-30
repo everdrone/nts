@@ -123,10 +123,11 @@ def parse_nts_data(bs):
     # parse artists in the title
     artists, parsed_artists = parse_artists(title, bs)
 
-    if title_box.div.div.h2.find(text=True, recursive=False):
-        station = title_box.div.div.h2.find(text=True, recursive=False).strip()
-    else:
+    station = title_box.div.div.h2.find(text=True, recursive=False)
+    if not station:
         station = 'London'
+    else:
+        station = station.strip()
 
     bg_tag = bs.select('section#bg[style]')
     background_image_regex = r'background-image:url\((.*)\)'
