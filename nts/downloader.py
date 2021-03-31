@@ -11,7 +11,7 @@ import youtube_dl
 from bs4 import BeautifulSoup
 
 
-__version__ = '1.1.6'
+__version__ = '1.1.7'
 
 
 # defaults to darwin
