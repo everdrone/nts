@@ -10,8 +10,12 @@ import requests
 import youtube_dl
 from bs4 import BeautifulSoup
 
+from mutagen.easyid3 import EasyID3
+from mutagen.id3 import ID3, APIC, COMM
+from mutagen.mp4 import MP4
 
-__version__ = '1.1.7'
+
+__version__ = '1.1.8'
 
 
 # defaults to darwin
@@ -29,6 +33,7 @@ def download(url, quiet, save_dir, save=True):
 
     # guessing there is one
     parsed = parse_nts_data(bs)
+    parsed['url'] = nts_url
     # safe_title, date, title, artists, parsed_artists, genres, image_url = parse_nts_data(bs)
 
     button = bs.select('.episode__btn.mixcloud-btn')[0]
@@ -72,44 +77,20 @@ def download(url, quiet, save_dir, save=True):
                 # found
                 if not quiet:
                     print(f'adding metadata to {file} ...')
-                audio = mutagen.File(os.path.join(save_dir, file))
-                # title
-                audio['\xa9nam'] = f'{parsed["title"]} - {parsed["date"].day:02d}.{parsed["date"].month:02d}.{parsed["date"].year:02d}'
-                # part of a compilation
-                audio['cpil'] = True
-                # album
-                audio['\xa9alb'] = 'NTS'
-                # artist
-                join_artists = parsed['artists'] + parsed['parsed_artists']
-                all_artists = []
-                presence_set = set()
-                for aa in join_artists:
-                    al = aa.lower()
-                    if al not in presence_set:
-                        presence_set.add(al)
-                        all_artists.append(aa)
-                # add to output data
-                parsed['all_artists'] = all_artists
-                # add to file metadata
-                audio['\xa9ART'] = "; ".join(all_artists)
-                # year
-                audio['\xa9day'] = f'{parsed["date"].year}'
-                # comment
-                audio['\xa9cmt'] = nts_url
-                # genre
-                if len(parsed['genres']) != 0:
-                    audio['\xa9gen'] = parsed['genres'][0]
-                # cover
-                if image_type != '':
-                    match = re.match(r'jpe?g$', image_type)
-                    img_format = None
-                    if match:
-                        img_format = mutagen.mp4.AtomDataType.JPEG
-                    else:
-                        img_format = mutagen.mp4.AtomDataType.PNG
-                    cover = mutagen.mp4.MP4Cover(image, img_format)
-                    audio['covr'] = [cover]
-                audio.save()
+
+                # .m4a and .mp3 use different methods
+                _, file_ext = os.path.splitext(file)
+                file_ext = file_ext.lower()
+
+                if file_ext == '.m4a':
+                    set_m4a_metadata(os.path.join(
+                        save_dir, file), parsed, image, image_type)
+                elif file_ext == '.mp3':
+                    set_mp3_metadata(os.path.join(
+                        save_dir, file), parsed, image, image_type)
+                else:
+                    print(
+                        f'Cannot edit metadata for unknown file type {file_ext}')
     return parsed
 
 
@@ -257,6 +238,89 @@ def get_episodes_of_show(show_name):
             break
 
     return output
+
+
+def set_m4a_metadata(file_path, parsed, image, image_type):
+    audio = MP4(file_path)
+
+    audio['\xa9nam'] = f'{parsed["title"]} - {parsed["date"].day:02d}.{parsed["date"].month:02d}.{parsed["date"].year:02d}'
+    # part of a compilation
+    audio['cpil'] = True
+    # album
+    audio['\xa9alb'] = 'NTS'
+    # artist
+    join_artists = parsed['artists'] + parsed['parsed_artists']
+    all_artists = []
+    presence_set = set()
+    for aa in join_artists:
+        al = aa.lower()
+        if al not in presence_set:
+            presence_set.add(al)
+            all_artists.append(aa)
+    # add to output data
+    parsed['all_artists'] = all_artists
+    # add to file metadata
+    audio['\xa9ART'] = "; ".join(all_artists)
+    # year
+    audio['\xa9day'] = f'{parsed["date"].year}'
+    # comment
+    audio['\xa9cmt'] = parsed['url']
+    # genre
+    if len(parsed['genres']) != 0:
+        audio['\xa9gen'] = parsed['genres'][0]
+    # cover
+    if image_type != '':
+        match = re.match(r'jpe?g$', image_type)
+        img_format = None
+        if match:
+            img_format = mutagen.mp4.AtomDataType.JPEG
+        else:
+            img_format = mutagen.mp4.AtomDataType.PNG
+        cover = mutagen.mp4.MP4Cover(image, img_format)
+        audio['covr'] = [cover]
+    audio.save()
+
+
+def set_mp3_metadata(file_path, parsed, image, image_type):
+    audio = mutagen.File(file_path, easy=True)
+
+    audio['title'] = f'{parsed["title"]} - {parsed["date"].day:02d}.{parsed["date"].month:02d}.{parsed["date"].year:02d}'
+    audio['compilation'] = '1'  # True
+    audio['album'] = 'NTS'
+
+    # add artist string
+    join_artists = parsed['artists'] + parsed['parsed_artists']
+    all_artists = []
+    presence_set = set()
+    for aa in join_artists:
+        al = aa.lower()
+        if al not in presence_set:
+            presence_set.add(al)
+            all_artists.append(aa)
+    audio['artist'] = "; ".join(all_artists)
+    audio['date'] = str(parsed['date'].year)
+
+    # add first genre
+    if len(parsed['genres']) != 0:
+        audio['genre'] = parsed['genres'][0]
+    audio.save()
+
+    # add cover
+    audio = ID3(file_path)
+    audio.delall('APIC')
+    if image_type != '':
+        audio['APIC'] = APIC(
+            encoding=3,
+            mime=image_type,
+            type=3, desc=u'Cover',
+            data=image
+        )
+
+    # add comment
+    audio.delall('COMM')
+    audio['COMM'] = COMM(encoding=0, lang='eng',
+                         desc=u'', text=[parsed['url']])
+    audio.save()
 
 
 def main():
