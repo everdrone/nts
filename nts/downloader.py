@@ -15,7 +15,7 @@ from mutagen.id3 import ID3, APIC, COMM
 from mutagen.mp4 import MP4
 
 
-__version__ = '1.1.8'
+__version__ = '1.1.9'
 
 
 # defaults to darwin
@@ -110,7 +110,8 @@ def parse_nts_data(bs):
     else:
         station = station.strip()
 
-    bg_tag = bs.select('section#bg[style]')
+    # bg_tag = bs.select('section#bg[style]')
+    bg_tag = bs.select('section.background-image.visible-desktop[style]')
     background_image_regex = r'background-image:url\((.*)\)'
     image_url = re.match(background_image_regex,
                          bg_tag[0]['style']).groups()[0]
