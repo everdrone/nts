@@ -23,7 +23,7 @@ setuptools.setup(
         'youtube-dl==2021.6.6',
         'beautifulsoup4==4.9.3',
         'mutagen==1.45.1',
-        'requests==2.26.0'
+        'requests==2.31.0'
     ],
     python_requires='>=3.7.5',
 )
