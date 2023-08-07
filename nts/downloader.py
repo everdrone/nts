@@ -66,7 +66,11 @@ def download(url, quiet, save_dir, save=True):
         image_type = image.info().get_content_type()
         image = image.read()
 
-    if image is None and len(parsed["image_url"]) > 0:
+    if image is None and len(parsed['image_url']) > 0:
+        if '/resize/' in parsed['image_url']:
+            # use a bigger image
+            parsed['image_url'] = re.sub(
+                r'/resize/\d+x\d+/', '/resize/1000x1000/', parsed['image_url'])
         image = urllib.request.urlopen(parsed["image_url"])
         image_type = image.info().get_content_type()
         image = image.read()
@@ -320,13 +324,16 @@ def set_mp3_metadata(file_path, parsed, image, image_type):
 
     # add cover
     audio = ID3(file_path)
-    audio.delall('APIC')
+    if audio.getall('APIC'):
+        audio.delall('APIC')
     if image_type != '':
-        audio['APIC'] = APIC(
-            encoding=3,
-            mime=image_type,
-            type=3, desc=u'Cover',
-            data=image
+        audio.add(
+            APIC(
+                encoding=3,
+                mime=image_type,
+                type=3, desc=u'Cover',
+                data=image
+            )
         )
 
     # add comment
