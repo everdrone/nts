@@ -8,6 +8,7 @@ import json
 import mutagen
 import requests
 import youtube_dl
+from cssutils import parseStyle
 from bs4 import BeautifulSoup
 
 from mutagen.easyid3 import EasyID3
@@ -15,7 +16,7 @@ from mutagen.id3 import ID3, APIC, COMM
 from mutagen.mp4 import MP4
 
 
-__version__ = '1.1.9'
+__version__ = '1.2.0'
 
 
 # defaults to darwin
@@ -38,21 +39,34 @@ def download(url, quiet, save_dir, save=True):
 
     button = bs.select('.episode__btn.mixcloud-btn')[0]
     link = button.get('data-src')
-    match = re.match(r'https:\/\/www.mixcloud\.com\/NTSRadio.+$', link)
+    host = None
+
+    if 'https://mixcloud' in link:
+        host = 'mixcloud'
+    elif 'https://soundcloud' in link:
+        host = 'soundcloud'
 
     # get album art. If the one on mixcloud is available, use it. Otherwise,
     # fall back to the nts website.
     page = requests.get(link).content
     bs = BeautifulSoup(page, 'html.parser')
     image_type = ''
-    if len(bs.select('div.album-art')) != 0:
+    image = None
+
+    if host == 'mixcloud' and len(bs.select('div.album-art')) != 0:
         img = bs.select('div.album-art')[0].img
         srcset = img.get('srcset').split()
         img = srcset[-2].split(',')[1]
         image = urllib.request.urlopen(img)
         image_type = image.info().get_content_type()
         image = image.read()
-    elif len(parsed["image_url"]):
+    elif host == 'soundcloud' and len(bs.select('span.image__full')) != 0:
+        style = parseStyle(bs.select('.image__full')[0].get('style'))
+        image = urllib.request.urlopen(style['background-image'])
+        image_type = image.info().get_content_type()
+        image = image.read()
+
+    if image is None and len(parsed["image_url"]) > 0:
         image = urllib.request.urlopen(parsed["image_url"])
         image_type = image.info().get_content_type()
         image = image.read()
@@ -111,10 +125,8 @@ def parse_nts_data(bs):
         station = station.strip()
 
     # bg_tag = bs.select('section#bg[style]')
-    bg_tag = bs.select('section.background-image.visible-desktop[style]')
-    background_image_regex = r'background-image:url\((.*)\)'
-    image_url = re.match(background_image_regex,
-                         bg_tag[0]['style']).groups()[0]
+    bg_tag = bs.select('img.visible-desktop')[0]
+    image_url = bg_tag.get('src') if bg_tag else ''
 
     # sometimes it's just the date
     date = title_box.div.div.h2.span.text
