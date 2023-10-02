@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="nts-everdrone",
-    version="1.2.0",
+    version="1.3.0",
     author="Giorgio Tropiano",
     author_email="giorgiotropiano@gmail.com",
     description="NTS Radio downloader tool",
@@ -16,11 +16,9 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     license='MIT',
-    entry_points={
-        'console_scripts': ['nts=nts.cli:main']
-    },
+    entry_points={'console_scripts': ['nts=nts.cli:main']},
     install_requires=[
-        'youtube-dl==2021.6.6',
+        'yt-dlp==2023.9.24',
         'beautifulsoup4==4.9.3',
         'mutagen==1.45.1',
         'requests==2.26.0',

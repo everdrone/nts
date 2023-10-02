@@ -7,7 +7,7 @@ import json
 
 import mutagen
 import requests
-import youtube_dl
+from yt_dlp import YoutubeDL
 from cssutils import parseStyle
 from bs4 import BeautifulSoup
 
@@ -15,9 +15,7 @@ from mutagen.easyid3 import EasyID3
 from mutagen.id3 import ID3, APIC, COMM
 from mutagen.mp4 import MP4
 
-
-__version__ = '1.2.0'
-
+__version__ = '1.3.0'
 
 # defaults to darwin
 download_dir = '~/Downloads'
@@ -69,8 +67,9 @@ def download(url, quiet, save_dir, save=True):
     if image is None and len(parsed['image_url']) > 0:
         if '/resize/' in parsed['image_url']:
             # use a bigger image
-            parsed['image_url'] = re.sub(
-                r'/resize/\d+x\d+/', '/resize/1000x1000/', parsed['image_url'])
+            parsed['image_url'] = re.sub(r'/resize/\d+x\d+/',
+                                         '/resize/1000x1000/',
+                                         parsed['image_url'])
         image = urllib.request.urlopen(parsed["image_url"])
         image_type = image.info().get_content_type()
         image = image.read()
@@ -85,7 +84,7 @@ def download(url, quiet, save_dir, save=True):
             'outtmpl': os.path.join(save_dir, f'{file_name}.%(ext)s'),
             'quiet': quiet
         }
-        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+        with YoutubeDL(ydl_opts) as ydl:
             ydl.download([link])
 
         # get the downloaded file
@@ -101,14 +100,15 @@ def download(url, quiet, save_dir, save=True):
                 file_ext = file_ext.lower()
 
                 if file_ext == '.m4a':
-                    set_m4a_metadata(os.path.join(
-                        save_dir, file), parsed, image, image_type)
+                    set_m4a_metadata(os.path.join(save_dir, file), parsed,
+                                     image, image_type)
                 elif file_ext == '.mp3':
-                    set_mp3_metadata(os.path.join(
-                        save_dir, file), parsed, image, image_type)
+                    set_mp3_metadata(os.path.join(save_dir, file), parsed,
+                                     image, image_type)
                 else:
                     print(
-                        f'Cannot edit metadata for unknown file type {file_ext}')
+                        f'Cannot edit metadata for unknown file type {file_ext}'
+                    )
     return parsed
 
 
@@ -169,10 +169,7 @@ def parse_tracklist(bs):
             for track in tracks_list:
                 artist = track.select('.track__artist')[0].text.strip()
                 name = track.select('.track__title')[0].text.strip()
-                tracks.append({
-                    'artist': artist,
-                    'name': name
-                })
+                tracks.append({'artist': artist, 'name': name})
     return tracks
 
 
@@ -187,17 +184,16 @@ def parse_genres(bs):
 
 def parse_artists(title, bs):
     # parse artists in the title
-    parsed_artists = re.findall(
-        r'(?:w\/|with)(.+?)(?=and|,|&|\s-\s)', title, re.IGNORECASE)
+    parsed_artists = re.findall(r'(?:w\/|with)(.+?)(?=and|,|&|\s-\s)', title,
+                                re.IGNORECASE)
     if not parsed_artists:
-        parsed_artists = re.findall(
-            r'(?:w\/|with)(.+)', title, re.IGNORECASE)
+        parsed_artists = re.findall(r'(?:w\/|with)(.+)', title, re.IGNORECASE)
     # strip all
     parsed_artists = [x.strip() for x in parsed_artists]
     # get other artists after the w/
     if parsed_artists:
-        more_people = re.sub(
-            r'^.+?(?:w\/|with)(.+?)(?=and|,|&|\s-\s)', '', title, re.IGNORECASE)
+        more_people = re.sub(r'^.+?(?:w\/|with)(.+?)(?=and|,|&|\s-\s)', '',
+                             title, re.IGNORECASE)
         if more_people == title:
             # no more people
             more_people = ''
@@ -238,8 +234,8 @@ def get_episodes_of_show(show_name):
         res = requests.get(api_url)
         try:
             res = res.json()
-        except:
-            print('error parsing api response json')
+        except json.decoder.JSONDecodeError as e:
+            print('error parsing api response json:', e)
             exit(1)
         if count == 0:
             count = int(res['metadata']['resultset']['count'])
@@ -250,7 +246,8 @@ def get_episodes_of_show(show_name):
                 if ep['status'] == 'published':
                     alias = ep['episode_alias']
                     output.append(
-                        f'https://www.nts.live/shows/{show_name}/episodes/{alias}')
+                        f'https://www.nts.live/shows/{show_name}/episodes/{alias}'
+                    )
         if len(output) == count:
             break
 
@@ -260,7 +257,8 @@ def get_episodes_of_show(show_name):
 def set_m4a_metadata(file_path, parsed, image, image_type):
     audio = MP4(file_path)
 
-    audio['\xa9nam'] = f'{parsed["title"]} - {parsed["date"].day:02d}.{parsed["date"].month:02d}.{parsed["date"].year:02d}'
+    audio[
+        '\xa9nam'] = f'{parsed["title"]} - {parsed["date"].day:02d}.{parsed["date"].month:02d}.{parsed["date"].year:02d}'
     # part of a compilation
     audio['cpil'] = True
     # album
@@ -301,7 +299,8 @@ def set_m4a_metadata(file_path, parsed, image, image_type):
 def set_mp3_metadata(file_path, parsed, image, image_type):
     audio = mutagen.File(file_path, easy=True)
 
-    audio['title'] = f'{parsed["title"]} - {parsed["date"].day:02d}.{parsed["date"].month:02d}.{parsed["date"].year:02d}'
+    audio[
+        'title'] = f'{parsed["title"]} - {parsed["date"].day:02d}.{parsed["date"].month:02d}.{parsed["date"].year:02d}'
     audio['compilation'] = '1'  # True
     audio['album'] = 'NTS'
 
@@ -328,18 +327,18 @@ def set_mp3_metadata(file_path, parsed, image, image_type):
         audio.delall('APIC')
     if image_type != '':
         audio.add(
-            APIC(
-                encoding=3,
-                mime=image_type,
-                type=3, desc=u'Cover',
-                data=image
-            )
-        )
+            APIC(encoding=3,
+                 mime=image_type,
+                 type=3,
+                 desc=u'Cover',
+                 data=image))
 
     # add comment
     audio.delall('COMM')
-    audio['COMM'] = COMM(encoding=0, lang='eng',
-                         desc=u'', text=[parsed['url']])
+    audio['COMM'] = COMM(encoding=0,
+                         lang='eng',
+                         desc=u'',
+                         text=[parsed['url']])
     audio.save()
 
 
