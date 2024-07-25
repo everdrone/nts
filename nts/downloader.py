@@ -12,7 +12,7 @@ from cssutils import parseStyle
 from bs4 import BeautifulSoup
 
 from mutagen.easyid3 import EasyID3
-from mutagen.id3 import ID3, APIC, COMM
+from mutagen.id3 import ID3, APIC, COMM, USLT
 from mutagen.mp4 import MP4
 
 __version__ = '1.3.0'
@@ -339,6 +339,14 @@ def set_mp3_metadata(file_path, parsed, image, image_type):
                          lang='eng',
                          desc=u'',
                          text=[parsed['url']])
+
+    # add tracklist to lyrics
+    tracklist = '\n'.join(list(map(lambda x: f'{x["name"]} by {x["artist"]}', parsed['tracks'])))
+
+    if tracklist:
+        audio.delall('USLT')
+        audio['USLT'] = (USLT(encoding=3, lang='eng', desc=u'Tracklist', text=tracklist))
+
     audio.save()
 
 
