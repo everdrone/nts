@@ -283,6 +283,11 @@ def set_m4a_metadata(file_path, parsed, image, image_type):
     # genre
     if len(parsed['genres']) != 0:
         audio['\xa9gen'] = parsed['genres'][0]
+    # tracklist in lyrics
+    if len(parsed['tracks']) != 0:
+        tracklist = '\n'.join(list(map(lambda x: f'{x["name"]} by {x["artist"]}', parsed['tracks'])))
+        tracklist = 'Tracklist:\n' + tracklist
+        audio['\xa9lyr'] = tracklist
     # cover
     if image_type != '':
         match = re.match(r'jpe?g$', image_type)
