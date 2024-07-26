@@ -43,20 +43,15 @@ def mixcloud_try(parsed):
     day = parsed['date'].strftime('%d')
     day += get_suffix(int(day))
     title = parsed['title'] + ' - ' + day + parsed['date'].strftime(' %B %Y')
-    print(title)
     query = re.sub(r'[-/]', '', title)
     query = re.sub(r'\s+', '+', query)
     query = "https://api.mixcloud.com/search/?q=" + query + "&type=cloudcast"
-    print (query)
     reply = requests.get(query)
     if reply.status_code != 200:
-        print(reply)
-        print('sad, no reply')
         return None
     reply = reply.json()['data']
     reply = filter(lambda x: x['user']['username'] == 'NTSRadio', reply)
     for resp in reply:
-        print(resp['url'])
         if resp['name'] == title:
             return resp['url']
     return None
