@@ -24,6 +24,42 @@ if sys.platform.startswith('win32'):
 # expand it
 download_dir = os.path.expanduser('~/Downloads')
 
+def get_suffix(day):
+    if 10 <= day % 100 <= 20:
+        suffix = 'th'
+    else:
+        last_digit = day % 10
+        if last_digit == 1:
+            suffix = 'st'
+        elif last_digit == 2:
+            suffix = 'nd'
+        elif last_digit == 3:
+            suffix = 'rd'
+        else:
+            suffix = 'th'
+    return suffix
+
+def mixcloud_try(parsed):
+    day = parsed['date'].strftime('%d')
+    day += get_suffix(int(day))
+    title = parsed['title'] + ' - ' + day + parsed['date'].strftime(' %B %Y')
+    print(title)
+    query = re.sub(r'[-/]', '', title)
+    query = re.sub(r'\s+', '+', query)
+    query = "https://api.mixcloud.com/search/?q=" + query + "&type=cloudcast"
+    print (query)
+    reply = requests.get(query)
+    if reply.status_code != 200:
+        print(reply)
+        print('sad, no reply')
+        return None
+    reply = reply.json()['data']
+    reply = filter(lambda x: x['user']['username'] == 'NTSRadio', reply)
+    for resp in reply:
+        print(resp['url'])
+        if resp['name'] == title:
+            return resp['url']
+    return None
 
 def download(url, quiet, save_dir, save=True):
     nts_url = url
@@ -38,6 +74,11 @@ def download(url, quiet, save_dir, save=True):
     button = bs.select('.episode__btn.mixcloud-btn')[0]
     link = button.get('data-src')
     host = None
+
+    if 'https://mixcloud' not in link:
+        mixcloud_url = mixcloud_try(parsed)
+        if mixcloud_url:
+            link = mixcloud_url
 
     if 'https://mixcloud' in link:
         host = 'mixcloud'
