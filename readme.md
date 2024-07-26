@@ -1,7 +1,5 @@
 # NTS Radio downloader
 
-Personal fork from [github.com/everdrone/nts](https://github.com/everdrone/nts)
-
 Downloads [NTS](https://www.nts.live) episodes (with metadata) for offline listening.
 
 <img src="https://i.postimg.cc/fRfNN8Y6/nts-header.png" />
