@@ -15,7 +15,7 @@ from mutagen.easyid3 import EasyID3
 from mutagen.id3 import ID3, APIC, COMM, USLT
 from mutagen.mp4 import MP4
 
-__version__ = '1.3.0'
+__version__ = '1.3.1'
 
 # defaults to darwin
 download_dir = '~/Downloads'
