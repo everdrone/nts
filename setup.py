@@ -21,7 +21,7 @@ setuptools.setup(
         'yt-dlp==2023.9.24',
         'beautifulsoup4==4.9.3',
         'mutagen==1.45.1',
-        'requests==2.26.0',
+        'requests==2.32.2',
         'cssutils==2.7.1',
     ],
     python_requires='>=3.7.5',
