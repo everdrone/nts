@@ -23,6 +23,7 @@ setuptools.setup(
         'mutagen==1.45.1',
         'requests==2.32.2',
         'cssutils==2.7.1',
+        'ffmpeg-python==0.2.0'
     ],
     python_requires='>=3.7.5',
 )
