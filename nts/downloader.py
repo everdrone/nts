@@ -10,6 +10,7 @@ import requests
 from yt_dlp import YoutubeDL
 from cssutils import parseStyle
 from bs4 import BeautifulSoup
+import ffmpeg
 
 from mutagen.easyid3 import EasyID3
 from mutagen.id3 import ID3, APIC, COMM, USLT
@@ -134,6 +135,14 @@ def download(url, quiet, save_dir, save=True):
                 # .m4a and .mp3 use different methods
                 _, file_ext = os.path.splitext(file)
                 file_ext = file_ext.lower()
+
+                if file_ext == '.webm' or file_ext == '.opus':
+                    old_file_path = os.path.join(save_dir, file)
+                    file = file_name + '.ogg'
+                    new_file_path = os.path.join(save_dir, file)
+                    ffmpeg.input(old_file_path).output(new_file_path, acodec='copy').run(overwrite_output=True)
+                    os.remove(old_file_path)
+                    file_ext = '.ogg'
 
                 if file_ext == '.m4a':
                     set_m4a_metadata(os.path.join(save_dir, file), parsed,
