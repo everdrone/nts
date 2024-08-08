@@ -324,6 +324,7 @@ def set_metadata(file_path, parsed, image, image_type):
     if tracklist:
         f['lyrics'] = "Tracklist:\n" + get_tracklist(parsed)
     f['artwork'] = image
+    f['comment'] = parsed['url']
 
     f.save()
 
