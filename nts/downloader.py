@@ -313,7 +313,6 @@ def get_artists(parsed):
 def set_metadata(file_path, parsed, image, image_type):
     f = music_tag.load_file(file_path)
 
-    print(f'{parsed["date"].date().isoformat()}')
     f['title'] = get_title(parsed)
     f['compilation'] = 1
     f['album'] = 'NTS'
