@@ -320,7 +320,9 @@ def set_metadata(file_path, parsed, image, image_type):
     f['artist'] = get_artists(parsed)
     f.raw['year'] = get_date(parsed)
     f['genre'] = get_genres(parsed)
-    f['lyrics'] = "Tracklist:\n" + get_tracklist(parsed)
+    tracklist = get_tracklist(parsed)
+    if tracklist:
+        f['lyrics'] = "Tracklist:\n" + get_tracklist(parsed)
     f['artwork'] = image
 
     f.save()
