@@ -10,12 +10,10 @@ import requests
 from yt_dlp import YoutubeDL
 from cssutils import parseStyle
 from bs4 import BeautifulSoup
+import ffmpeg
+import music_tag
 
-from mutagen.easyid3 import EasyID3
-from mutagen.id3 import ID3, APIC, COMM, USLT
-from mutagen.mp4 import MP4
-
-__version__ = '1.3.1'
+__version__ = '1.3.2'
 
 # defaults to darwin
 download_dir = '~/Downloads'
@@ -135,16 +133,16 @@ def download(url, quiet, save_dir, save=True):
                 _, file_ext = os.path.splitext(file)
                 file_ext = file_ext.lower()
 
-                if file_ext == '.m4a':
-                    set_m4a_metadata(os.path.join(save_dir, file), parsed,
-                                     image, image_type)
-                elif file_ext == '.mp3':
-                    set_mp3_metadata(os.path.join(save_dir, file), parsed,
-                                     image, image_type)
-                else:
-                    print(
-                        f'Cannot edit metadata for unknown file type {file_ext}'
-                    )
+                if file_ext == '.webm' or file_ext == '.opus':
+                    old_file_path = os.path.join(save_dir, file)
+                    file = file_name + '.ogg'
+                    new_file_path = os.path.join(save_dir, file)
+                    ffmpeg.input(old_file_path).output(new_file_path, acodec='copy').run(overwrite_output=True)
+                    os.remove(old_file_path)
+                    file_ext = '.ogg'
+
+                set_metadata(os.path.join(save_dir, file), parsed, image, image_type)
+
     return parsed
 
 
@@ -289,17 +287,19 @@ def get_episodes_of_show(show_name):
 
     return output
 
+def get_title(parsed):
+    return f'{parsed["title"]} - {parsed["date"].day:02d}.{parsed["date"].month:02d}.{parsed["date"].year:02d}'
 
-def set_m4a_metadata(file_path, parsed, image, image_type):
-    audio = MP4(file_path)
+def get_tracklist(parsed):
+    return '\n'.join(list(map(lambda x: f'{x["name"]} by {x["artist"]}', parsed['tracks'])))
 
-    audio[
-        '\xa9nam'] = f'{parsed["title"]} - {parsed["date"].day:02d}.{parsed["date"].month:02d}.{parsed["date"].year:02d}'
-    # part of a compilation
-    audio['cpil'] = True
-    # album
-    audio['\xa9alb'] = 'NTS'
-    # artist
+def get_date(parsed):
+    return f'{parsed["date"].date().isoformat()}'
+
+def get_genres(parsed):
+    return '; '.join(parsed['genres'])
+
+def get_artists(parsed):
     join_artists = parsed['artists'] + parsed['parsed_artists']
     all_artists = []
     presence_set = set()
@@ -308,88 +308,24 @@ def set_m4a_metadata(file_path, parsed, image, image_type):
         if al not in presence_set:
             presence_set.add(al)
             all_artists.append(aa)
-    # add to output data
-    parsed['all_artists'] = all_artists
-    # add to file metadata
-    audio['\xa9ART'] = "; ".join(all_artists)
-    # year
-    audio['\xa9day'] = f'{parsed["date"].year}'
-    # comment
-    audio['\xa9cmt'] = parsed['url']
-    # genre
-    if len(parsed['genres']) != 0:
-        audio['\xa9gen'] = parsed['genres'][0]
-    # tracklist in lyrics
-    if len(parsed['tracks']) != 0:
-        tracklist = '\n'.join(list(map(lambda x: f'{x["name"]} by {x["artist"]}', parsed['tracks'])))
-        tracklist = 'Tracklist:\n' + tracklist
-        audio['\xa9lyr'] = tracklist
-    # cover
-    if image_type != '':
-        match = re.match(r'jpe?g$', image_type)
-        img_format = None
-        if match:
-            img_format = mutagen.mp4.AtomDataType.JPEG
-        else:
-            img_format = mutagen.mp4.AtomDataType.PNG
-        cover = mutagen.mp4.MP4Cover(image, img_format)
-        audio['covr'] = [cover]
-    audio.save()
+    return "; ".join(all_artists)
 
+def set_metadata(file_path, parsed, image, image_type):
+    f = music_tag.load_file(file_path)
 
-def set_mp3_metadata(file_path, parsed, image, image_type):
-    audio = mutagen.File(file_path, easy=True)
-
-    audio[
-        'title'] = f'{parsed["title"]} - {parsed["date"].day:02d}.{parsed["date"].month:02d}.{parsed["date"].year:02d}'
-    audio['compilation'] = '1'  # True
-    audio['album'] = 'NTS'
-
-    # add artist string
-    join_artists = parsed['artists'] + parsed['parsed_artists']
-    all_artists = []
-    presence_set = set()
-    for aa in join_artists:
-        al = aa.lower()
-        if al not in presence_set:
-            presence_set.add(al)
-            all_artists.append(aa)
-    audio['artist'] = "; ".join(all_artists)
-    audio['date'] = str(parsed['date'].year)
-
-    # add first genre
-    if len(parsed['genres']) != 0:
-        audio['genre'] = parsed['genres'][0]
-    audio.save()
-
-    # add cover
-    audio = ID3(file_path)
-    if audio.getall('APIC'):
-        audio.delall('APIC')
-    if image_type != '':
-        audio.add(
-            APIC(encoding=3,
-                 mime=image_type,
-                 type=3,
-                 desc=u'Cover',
-                 data=image))
-
-    # add comment
-    audio.delall('COMM')
-    audio['COMM'] = COMM(encoding=0,
-                         lang='eng',
-                         desc=u'',
-                         text=[parsed['url']])
-
-    # add tracklist to lyrics
-    tracklist = '\n'.join(list(map(lambda x: f'{x["name"]} by {x["artist"]}', parsed['tracks'])))
-
+    f['title'] = get_title(parsed)
+    f['compilation'] = 1
+    f['album'] = 'NTS'
+    f['artist'] = get_artists(parsed)
+    f.raw['year'] = get_date(parsed)
+    f['genre'] = get_genres(parsed)
+    tracklist = get_tracklist(parsed)
     if tracklist:
-        audio.delall('USLT')
-        audio['USLT'] = (USLT(encoding=3, lang='eng', desc=u'Tracklist', text=tracklist))
+        f['lyrics'] = "Tracklist:\n" + get_tracklist(parsed)
+    f['artwork'] = image
+    f['comment'] = parsed['url']
 
-    audio.save()
-
+    f.save()
 
 def main():
     episode_regex = r'.*nts\.live\/shows.+(\/episodes)\/.+'
