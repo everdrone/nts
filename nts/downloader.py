@@ -218,7 +218,7 @@ def parse_genres(bs):
 
 def parse_artists(title, bs):
     # parse artists in the title
-    parsed_artists = re.findall(r'(?:w\/|with)(.+?)(?=and|,|&|\s-\s)', title,
+    parsed_artists = re.findall(r'(?:w\/|with)(.+?)(?=\sand\s|,|&|\s-\s)', title,
                                 re.IGNORECASE)
     if not parsed_artists:
         parsed_artists = re.findall(r'(?:w\/|with)(.+)', title, re.IGNORECASE)
@@ -226,14 +226,14 @@ def parse_artists(title, bs):
     parsed_artists = [x.strip() for x in parsed_artists]
     # get other artists after the w/
     if parsed_artists:
-        more_people = re.sub(r'^.+?(?:w\/|with)(.+?)(?=and|,|&|\s-\s)', '',
+        more_people = re.sub(r'^.+?(?:w\/|with)(.+?)(?=\sand\s|,|&|\s-\s)', '',
                              title, re.IGNORECASE)
         if more_people == title:
             # no more people
             more_people = ''
         if not re.match(r'^\s*-\s', more_people):
             # split if separators are encountered
-            more_people = re.split(r',|and|&', more_people, re.IGNORECASE)
+            more_people = re.split(r',|\sand\s|&', more_people, re.IGNORECASE)
             # append to array
             if more_people:
                 for mp in more_people:
