@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 import ffmpeg
 import music_tag
 
-__version__ = '1.3.2'
+__version__ = '1.3.3'
 
 # defaults to darwin
 download_dir = '~/Downloads'
