@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 import ffmpeg
 import music_tag
 
-__version__ = '1.3.3'
+__version__ = '1.3.4'
 
 # defaults to darwin
 download_dir = '~/Downloads'
@@ -162,8 +162,7 @@ def parse_nts_data(bs):
     else:
         station = station.strip()
 
-    # bg_tag = bs.select('section#bg[style]')
-    bg_tag = bs.select('img.visible-desktop')[0]
+    bg_tag = bs.select('img.profile-image__img')[0]
     image_url = bg_tag.get('src') if bg_tag else ''
 
     # sometimes it's just the date
