@@ -64,7 +64,7 @@ def download(url, quiet, save_dir, save=True):
     parsed['url'] = nts_url
     # safe_title, date, title, artists, parsed_artists, genres, image_url = parse_nts_data(bs)
 
-    button = bs.select('.episode__btn.mixcloud-btn')[0]
+    button = bs.select('.mixcloud-btn')[0]
     link = button.get('data-src')
     host = None
 
