@@ -148,7 +148,7 @@ def download(url, quiet, save_dir, save=True):
 
 def parse_nts_data(bs):
     # guessing there is one
-    title_box = bs.select('div.bio__title')[0]
+    title_box = bs.select('div.episode__header')[0]
 
     # title data
     title, safe_title = parse_title(title_box)
@@ -156,21 +156,19 @@ def parse_nts_data(bs):
     # parse artists in the title
     artists, parsed_artists = parse_artists(title, bs)
 
-    station = title_box.div.div.h2.find(text=True, recursive=False)
-    if not station:
+    station_span = bs.select('span.bio__broadcast-location')
+    if not station_span:
         station = 'London'
     else:
-        station = station.strip()
+        station = station_span[0].text.strip()
 
     bg_tag = bs.select('img.profile-image__img')[0]
     image_url = bg_tag.get('src') if bg_tag else ''
 
     # sometimes it's just the date
-    date = title_box.div.div.h2.span.text
-    if ',' in date:
-        date = date.split(',')[1].strip()
-    else:
-        date = date.strip()
+    date_span = bs.select('span.bio__broadcast-date')
+    if date_span:
+        date = date_span[0].text.strip()
     date = datetime.datetime.strptime(date, '%d.%m.%y')
 
     # genres
@@ -209,7 +207,7 @@ def parse_tracklist(bs):
 def parse_genres(bs):
     # genres
     genres = []
-    genres_box = bs.select('.episode-genres')[0]
+    genres_box = bs.select('.episode__genres')[0]
     for anchor in genres_box.find_all('a'):
         genres.append(anchor.text.strip())
     return genres
@@ -250,7 +248,7 @@ def parse_artists(title, bs):
 
 
 def parse_title(title_box):
-    title = title_box.div.h1.text
+    title = title_box.h1.text
     title = title.strip()
 
     # remove unsafe characters for the FS
