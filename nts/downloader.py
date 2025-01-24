@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 import ffmpeg
 import music_tag
 
-__version__ = '1.3.4'
+__version__ = '1.3.5'
 
 # defaults to darwin
 download_dir = '~/Downloads'
@@ -167,8 +167,7 @@ def parse_nts_data(bs):
 
     # sometimes it's just the date
     date_span = bs.select('span.bio__broadcast-date')
-    if date_span:
-        date = date_span[0].text.strip()
+    date = date_span[0].text.strip()
     date = datetime.datetime.strptime(date, '%d.%m.%y')
 
     # genres
