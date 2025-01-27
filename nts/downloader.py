@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 import ffmpeg
 import music_tag
 
-__version__ = '1.3.5'
+__version__ = '1.3.6'
 
 # defaults to darwin
 download_dir = '~/Downloads'
@@ -206,9 +206,11 @@ def parse_tracklist(bs):
 def parse_genres(bs):
     # genres
     genres = []
-    genres_box = bs.select('.episode__genres')[0]
-    for anchor in genres_box.find_all('a'):
-        genres.append(anchor.text.strip())
+    genres_box = bs.select('.episode__genres')
+    if genres_box:
+        genres_box = genres_box[0]
+        for anchor in genres_box.find_all('a'):
+            genres.append(anchor.text.strip())
     return genres
 
 
