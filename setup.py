@@ -21,7 +21,7 @@ setuptools.setup(
         'yt-dlp==2024.7.25',
         'beautifulsoup4==4.9.3',
         'mutagen==1.45.1',
-        'requests==2.32.2',
+        'requests==2.32.4',
         'cssutils==2.7.1',
         'ffmpeg-python==0.2.0',
         'music-tag==0.4.3',
