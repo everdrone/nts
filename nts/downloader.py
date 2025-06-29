@@ -58,15 +58,14 @@ def download(url, quiet, save_dir, save=True):
     nts_url = url
     page = requests.get(url).content
     bs = BeautifulSoup(page, 'html.parser')
+    api_url = "https://nts.live/api/v2" + urllib.parse.urlparse(url).path
+    api_data = requests.get(api_url).json()
 
     # guessing there is one
-    parsed = parse_nts_data(bs)
+    parsed = parse_nts_data(bs, api_data)
     parsed['url'] = nts_url
-    # safe_title, date, title, artists, parsed_artists, genres, image_url = parse_nts_data(bs)
 
-    button = bs.select('.mixcloud-btn')[0]
-    link = button.get('data-src')
-    host = None
+    link = api_data.get('mixcloud', '') or api_data.get('audio_sources', [{'url': ''}])[0].get('url', '')
 
     if 'https://mixcloud' not in link:
         mixcloud_url = mixcloud_try(parsed)
@@ -80,30 +79,10 @@ def download(url, quiet, save_dir, save=True):
 
     # get album art. If the one on mixcloud is available, use it. Otherwise,
     # fall back to the nts website.
-    page = requests.get(link).content
-    bs = BeautifulSoup(page, 'html.parser')
     image_type = ''
     image = None
 
-    if host == 'mixcloud' and len(bs.select('div.album-art')) != 0:
-        img = bs.select('div.album-art')[0].img
-        srcset = img.get('srcset').split()
-        img = srcset[-2].split(',')[1]
-        image = urllib.request.urlopen(img)
-        image_type = image.info().get_content_type()
-        image = image.read()
-    elif host == 'soundcloud' and len(bs.select('span.image__full')) != 0:
-        style = parseStyle(bs.select('.image__full')[0].get('style'))
-        image = urllib.request.urlopen(style['background-image'])
-        image_type = image.info().get_content_type()
-        image = image.read()
-
-    if image is None and len(parsed['image_url']) > 0:
-        if '/resize/' in parsed['image_url']:
-            # use a bigger image
-            parsed['image_url'] = re.sub(r'/resize/\d+x\d+/',
-                                         '/resize/1000x1000/',
-                                         parsed['image_url'])
+    if len(parsed['image_url'])> 0:
         image = urllib.request.urlopen(parsed["image_url"])
         image_type = image.info().get_content_type()
         image = image.read()
@@ -146,35 +125,30 @@ def download(url, quiet, save_dir, save=True):
     return parsed
 
 
-def parse_nts_data(bs):
-    # guessing there is one
-    title_box = bs.select('div.episode__header')[0]
-
+def parse_nts_data(bs, api_data):
     # title data
-    title, safe_title = parse_title(title_box)
+    title = api_data.get('name', 'unknown')
+    safe_title = unsafe_char(title)
 
     # parse artists in the title
     artists, parsed_artists = parse_artists(title, bs)
 
-    station_span = bs.select('span.bio__broadcast-location')
-    if not station_span:
-        station = 'London'
-    else:
-        station = station_span[0].text.strip()
+    station = api_data.get('location_long', 'London')
 
-    bg_tag = bs.select('img.profile-image__img')[0]
-    image_url = bg_tag.get('src') if bg_tag else ''
+    image_url = api_data.get('media', {}).get('picture_large', '')
 
     # sometimes it's just the date
-    date_span = bs.select('span.bio__broadcast-date')
-    date = date_span[0].text.strip()
-    date = datetime.datetime.strptime(date, '%d.%m.%y')
+    date = api_data.get('broadcast', '')
+    date = datetime.datetime.fromisoformat(date)
 
     # genres
-    genres = parse_genres(bs)
+    genres = list(filter(lambda x: x != '', map(lambda x: x.get('value', ''), api_data.get('genres', []))))
 
     # tracklist
-    tracks = parse_tracklist(bs)
+    tracks = parse_tracklist(api_data)
+
+    description = api_data.get('description', '')
+
     return {
         'safe_title': safe_title,
         'date': date,
@@ -185,33 +159,15 @@ def parse_nts_data(bs):
         'station': station,
         'tracks': tracks,
         'image_url': image_url,
+        'description': description,
     }
 
 
-def parse_tracklist(bs):
+def parse_tracklist(api_data):
     # tracklist
-    tracks = []
-    tracks_box = bs.select('.tracklist')[0]
-    if tracks_box:
-        tracks_box = tracks_box.ul
-        if tracks_box:
-            tracks_list = tracks_box.select('li.track')
-            for track in tracks_list:
-                artist = track.select('.track__artist')[0].text.strip()
-                name = track.select('.track__title')[0].text.strip()
-                tracks.append({'artist': artist, 'name': name})
-    return tracks
-
-
-def parse_genres(bs):
-    # genres
-    genres = []
-    genres_box = bs.select('.episode__genres')
-    if genres_box:
-        genres_box = genres_box[0]
-        for anchor in genres_box.find_all('a'):
-            genres.append(anchor.text.strip())
-    return genres
+    tracks = api_data.get('embeds', {}).get('tracklist', {}).get('results', [])
+    tracks = map(lambda x: {'name': x.get('title', ''), 'artist': x.get('artist', '')}, tracks)
+    return list(tracks)
 
 
 def parse_artists(title, bs):
@@ -240,6 +196,7 @@ def parse_artists(title, bs):
     parsed_artists = list(filter(None, parsed_artists))
     # artists
     artists = []
+    # TODO: figure out how to replace the code below (only thing keeping beautiful soup around)
     artist_box = bs.select('.bio-artists')
     if artist_box:
         artist_box = artist_box[0]
@@ -247,15 +204,8 @@ def parse_artists(title, bs):
             artists.append(anchor.text.strip())
     return artists, parsed_artists
 
-
-def parse_title(title_box):
-    title = title_box.h1.text
-    title = title.strip()
-
-    # remove unsafe characters for the FS
-    safe_title = re.sub(r'\/|\:', '-', title)
-    return title, safe_title
-
+def unsafe_char(s):
+    return re.sub(r'\/|\:', '-', s)
 
 def get_episodes_of_show(show_name):
     offset = 0
@@ -308,6 +258,15 @@ def get_artists(parsed):
             all_artists.append(aa)
     return "; ".join(all_artists)
 
+def get_comment(parsed):
+    comment = ""
+    desc = parsed.get('description', '')
+    if len(desc) > 0:
+        comment = desc + '\n'
+    comment += f'Station Location: {parsed['station']}\n'
+    comment += parsed['url']
+    return comment
+
 def set_metadata(file_path, parsed, image, image_type):
     f = music_tag.load_file(file_path)
 
@@ -320,8 +279,7 @@ def set_metadata(file_path, parsed, image, image_type):
     tracklist = get_tracklist(parsed)
     if tracklist:
         f['lyrics'] = "Tracklist:\n" + get_tracklist(parsed)
-    f['artwork'] = image
-    f['comment'] = parsed['url']
+    f['comment'] = get_comment(parsed)
 
     f.save()
 
