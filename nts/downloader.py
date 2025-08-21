@@ -263,7 +263,7 @@ def get_comment(parsed):
     desc = parsed.get('description', '')
     if len(desc) > 0:
         comment = desc + '\n'
-    comment += f'Station Location: {parsed['station']}\n'
+    comment += f"Station Location: {parsed['station']}\n"
     comment += parsed['url']
     return comment
 
