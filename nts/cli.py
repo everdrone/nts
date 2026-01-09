@@ -3,7 +3,7 @@ import os
 import re
 import sys
 from optparse import OptionParser
-from nts import downloader as nts
+import downloader as nts
 
 
 def main():
@@ -40,6 +40,15 @@ def main():
                       dest="quiet",
                       action="store_true",
                       help="only print errors")
+    
+    parser.add_option(
+        "-a",
+        "--albumize",
+        dest="albumize",
+        default=False,
+        action="store_true",
+        help="splits show based on track ids and time stamp and tags as an album"
+    )
 
     (options, args) = parser.parse_args()
 
@@ -64,7 +73,8 @@ def main():
             if match_ep:
                 nts.download(url=url,
                              quiet=options.quiet,
-                             save_dir=download_dir)
+                             save_dir=download_dir,
+                             albumize=options.albumize)
             elif match_sh:
                 episodes = nts.get_episodes_of_show(match_sh.group(1))
                 for ep in episodes:
