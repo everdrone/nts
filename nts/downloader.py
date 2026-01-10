@@ -317,10 +317,10 @@ def set_metadata_album(save_dir, file, parsed, image, image_type):
     file = os.path.join(save_dir,file)
     ts = get_timestamps(parsed)
     tracks = get_tracklist_nof(parsed)
-    num_tracks = len(tracks) + 1
+    num_tracks = len(tracks) + 2
     if ts[0]['offset'] != 0:
         nfile = os.path.join(apath,"intro.m4a")
-        ffmpeg.input(file,ss=0,t=ts[0]['offset']).output(nfile, acodec='copy').run()
+        ffmpeg.input(file,ss=0,t=ts[0]['offset']).output(nfile).run()
         f = music_tag.load_file(nfile)
         f['tracktitle'] = 'NTS Intro'
         f['artwork'] = image
@@ -335,9 +335,29 @@ def set_metadata_album(save_dir, file, parsed, image, image_type):
         f['totaltracks'] = num_tracks
         f.save()
     
+    nfile = os.path.join(apath,"outro.m4a")
+    ffmpeg.input(file,ss=ts[len(tracks)-1]['offset'],t=ts[len(tracks)-1]['duration']).output(nfile).run()
+    f = music_tag.load_file(nfile)
+    f['tracktitle'] = 'NTS Outro'
+    f['artwork'] = image
+    f['albumartist'] = get_show(parsed)
+    f['compilation'] = 1
+    f['album'] = get_title(parsed)
+    f['artist'] = 'NTS'
+    f.raw['year'] = get_date(parsed)
+    f['genre'] = get_genres(parsed)
+    f['comment'] = get_comment(parsed)
+    f['tracknumber'] = num_tracks
+    f['totaltracks'] = num_tracks
+    f.save()
+        
     for i in range(len(tracks)):
         nfile = os.path.join(apath,str(tracks[i]['name'])+".m4a")
-        ffmpeg.input(file,ss=ts[i]['offset'],t=ts[i]['duration']).output(nfile, acodec='copy').run()
+        if i == len(tracks)-1:
+            start=ts[i-1]['offset']+ts[i-1]['duration']
+            ffmpeg.input(file,ss=start,t=ts[i]['offset']-start).output(nfile).run()
+        else:
+            ffmpeg.input(file,ss=ts[i]['offset'],t=ts[i]['duration']).output(nfile).run()
         f = music_tag.load_file(nfile)
         f['tracktitle'] = tracks[i]['name']
         f['artwork'] = image
