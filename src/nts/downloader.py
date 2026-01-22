@@ -4,12 +4,14 @@ import os
 import os.path as osp
 import re
 import urllib
+import urllib.parse
+import urllib.request
 
 import ffmpeg
 import music_tag
 import requests
 from bs4 import BeautifulSoup
-from yt_dlp import YoutubeDL
+from yt_dlp import YoutubeDL, _Params
 from yt_dlp.utils import DownloadError
 
 from nts.utils import ROOT_PATH, BrowserContext, PlaywrightContext, find_file
@@ -44,106 +46,108 @@ def download(url, quiet, save_dir, save=True, save_image: list = ["embd", "file"
     ntsp = NTSParser(url)
     ntsp.parse()
 
-    if save:
-        if not quiet:
-            print(f"\ndownloading into: {save_dir}\n")
+    if not save:
+        return
 
-        ## ----------------------------------------------------------
-        file_path_pattern = osp.join(save_dir, f"{ntsp.data['file_name']}.**")
-        down = True
-        already_down = find_file(file_path_pattern, ["audio", "video"])
-        if len(already_down) != 0:
-            print(f"already got something {already_down}")
-            inp = input("overwrite ? (y) ")
-            if inp.lower() == "y":
-                for f in already_down:
-                    print(f"removing {f}")
-                    os.remove(f)
-            else:
-                down = False
-        ## ----------------------------------------------------------
+    if not quiet:
+        print(f"\ndownloading into: {save_dir}\n")
 
-        if down:
-            ydl_opts = {
-                "outtmpl": osp.join(save_dir, f"{ntsp.data['file_name']}.%(ext)s"),
-                "quiet": quiet,
-            }
-            try:
-                with YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([ntsp.data["link"]])
-            except DownloadError as e:
-                print(e)
-                print("got and 404 - skipping ")
+    ## ----------------------------------------------------------
+    file_path_pattern = osp.join(save_dir, f"{ntsp.data['file_name']}.**")
+    down = True
+    already_down = find_file(file_path_pattern, ["audio", "video"])
+    if len(already_down) != 0:
+        print(f"already got something {already_down}")
+        inp = input("overwrite ? (y) ")
+        if inp.lower() == "y":
+            for f in already_down:
+                print(f"removing {f}")
+                os.remove(f)
+        else:
+            down = False
+    ## ----------------------------------------------------------
 
-        # get the downloaded file
-        files = find_file(file_path_pattern, ["audio", "video"])
-        if len(files) != 1:
-            print(
-                f"found already a file for: {ntsp.data['file_name']}\n\t{' , '.join(files)}"
-            )
-            breakpoint()
+    if down:
+        ydl_opts: _Params = {
+            "outtmpl": osp.join(save_dir, f"{ntsp.data['file_name']}.%(ext)s"),
+            "quiet": quiet,
+        }
+        try:
+            with YoutubeDL(ydl_opts) as ydl:
+                ydl.download([ntsp.data["link"]])
+        except DownloadError as e:
+            print(e)
+            print("got and 404 - skipping ")
+
+    # get the downloaded file
+    files = find_file(file_path_pattern, ["audio", "video"])
+    if len(files) != 1:
+        print(
+            f"found already a file for: {ntsp.data['file_name']}\n\t{' , '.join(files)}"
+        )
+        breakpoint()
+        return
+
+    file = files[0]
+    file_path = osp.join(save_dir, file)
+    if not quiet:
+        print(f"adding metadata to {file} ...")
+
+    # .m4a and .mp3 use different methods
+    file_ext = osp.splitext(file)[-1].lower()
+    updt = False
+    if file_ext == ".webm" or file_ext == ".opus":
+        old_file_path = file_path
+        file = ntsp.data["file_name"] + ".ogg"
+        file_path = osp.join(save_dir, file)
+
+        ## -------------------------------------
+        # dst_path = AudiUtils.convert_cuntainer(
+        #     file_path,
+        #     "ogg",
+        #     args=["-c:a", "copy"],
+        # )
+        # print(dst_path)
+        # assert new_file_path == dst_path
+        # file_path = new_file_path
+        ## -------------------------------------
+
+        ffmpeg.input(old_file_path).output(file_path, acodec="copy").run(
+            overwrite_output=True
+        )
+        # os.remove(file_path)
+        updt = True
+        file_ext = ".ogg"
+
+    ## --------------------------------------------------
+    image, image_type = get_image(ntsp.data["image_url"])
+    if "file" in save_image and image:
+        file_img = f"{ntsp.data['file_name']}.{image_type}"
+        filepath_img = osp.join(save_dir, file_img)
+        if not osp.exists(filepath_img):
+            with open(filepath_img, "wb") as f:
+                f.write(image)
+            print(f"Image downloaded: {filepath_img}")
+        else:
+            print(f"Image exists: {filepath_img}")
+
+    if "embd" not in save_image:
+        image = None
+    ## --------------------------------------------------
+
+    if not down and not updt:
+        inp = input("reset metadata ? (y) ")
+        if inp.lower() != "y":
             return
 
-        file = files[0]
-        file_path = osp.join(save_dir, file)
-        if not quiet:
-            print(f"adding metadata to {file} ...")
+    set_metadata(file_path, ntsp.data, image)
 
-        # .m4a and .mp3 use different methods
-        file_ext = osp.splitext(file)[-1].lower()
-        updt = False
-        if file_ext == ".webm" or file_ext == ".opus":
-            old_file_path = file_path
-            file = ntsp.data["file_name"] + ".ogg"
-            file_path = osp.join(save_dir, file)
-
-            ## -------------------------------------
-            # dst_path = AudiUtils.convert_cuntainer(
-            #     file_path,
-            #     "ogg",
-            #     args=["-c:a", "copy"],
-            # )
-            # print(dst_path)
-            # assert new_file_path == dst_path
-            # file_path = new_file_path
-            ## -------------------------------------
-
-            ffmpeg.input(old_file_path).output(file_path, acodec="copy").run(
-                overwrite_output=True
-            )
-            # os.remove(file_path)
-            updt = True
-            file_ext = ".ogg"
-
-        ## --------------------------------------------------
-        image, image_type = get_image(ntsp.data["image_url"])
-        if "file" in save_image and image:
-            file_img = f"{ntsp.data['file_name']}.{image_type}"
-            filepath_img = osp.join(save_dir, file_img)
-            if not osp.exists(filepath_img):
-                with open(filepath_img, "wb") as f:
-                    f.write(image)
-                print(f"Image downloaded: {filepath_img}")
-            else:
-                print(f"Image exists: {filepath_img}")
-
-        if "embd" not in save_image:
-            image = None
-        ## --------------------------------------------------
-
-        if not down and not updt:
-            inp = input("reset metadata ? (y) ")
-            if inp.lower() != "y":
-                return
-
-        set_metadata(file_path, ntsp.data, image)
-
-        # down_img_from_url(
-        #     url,
-        #     save_dir,
-        #     file_name,
-        #     css_sel="div.profile-image.visible-desktop img.profile-image__img",
-        # )  ##
+    # down_img_from_url(
+    #     url,
+    #     save_dir,
+    #     file_name,
+    #     css_sel="div.profile-image.visible-desktop img.profile-image__img",
+    # )  ##
 
 
 class NTSParser:
@@ -321,7 +325,7 @@ class NTSParser:
         return link
 
 
-### ----------------------------------------------------------------
+## ----------------------------------------------------------------
 def get_episodes_of_show(show_name):
     offset = 0
     count = 0
@@ -473,6 +477,7 @@ def set_metadata(file_path, parsed, image):
         return comment
 
     ft = music_tag.load_file(file_path)
+    assert ft, f"music_tag failed to load {file_path}"
     ft["title"] = get_title(parsed)
     ft["compilation"] = 1
     ft["album"] = "NTS"
