@@ -11,7 +11,7 @@ import ffmpeg
 import music_tag
 import requests
 from bs4 import BeautifulSoup
-from yt_dlp import YoutubeDL, _Params
+from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
 from nts.utils import ROOT_PATH, BrowserContext, PlaywrightContext, find_file
@@ -68,7 +68,7 @@ def download(url, quiet, save_dir, save=True, save_image: list = ["embd", "file"
     ## ----------------------------------------------------------
 
     if down:
-        ydl_opts: _Params = {
+        ydl_opts = {
             "outtmpl": osp.join(save_dir, f"{ntsp.data['file_name']}.%(ext)s"),
             "quiet": quiet,
         }
@@ -254,6 +254,7 @@ class NTSParser:
                         parsed_artists.append(mp)
         parsed_artists = list(filter(None, parsed_artists))
 
+        breakpoint()
         artists = []
         # TODO: figure out how to replace the code below (only thing keeping beautiful soup around)
         artist_box = self.bs_data.select(".bio-artists")
@@ -357,17 +358,15 @@ def get_episodes_of_show(show_name):
     return output
 
 
-@PlaywrightContext(
-    headless=False,
-    slow_mo=150,
-    auth_filepath=osp.join(ROOT_PATH, "data/.nts_auth.json"),
-    auth_login_url="https://www.nts.live/sign-in",
-)
-def get_my_favs(
-    decorator,
-    context: BrowserContext,
-    url: str,
-) -> list:
+def get_my_favs(url: str) -> list:
+    pw = PlaywrightContext(
+        headless=False,
+        slow_mo=150,
+        auth_filepath=osp.join(ROOT_PATH, "data/.nts_auth.json"),
+        auth_login_url="https://www.nts.live/sign-in",
+    )
+    pw.__enter__()
+
     favs_type = url.split("/")[-1]
 
     favs_json = osp.join(ROOT_PATH, f"data/nts_fav_{favs_type}.json")
@@ -380,8 +379,8 @@ def get_my_favs(
         if inp.lower() != "y":
             return all_links
 
-    page = context.new_page()
-    decorator.goto_retry(page, url)
+    page = pw.context.new_page()
+    pw.goto_retry(page, url)
 
     all_links = []
     previous_count = 0
@@ -433,9 +432,12 @@ def get_my_favs(
             print("No new items appeared after scrolling, stopping")
             break
 
-    with open(favs_json, "w", encoding="utf-8") as f:
-        json.dump(all_links, f, ensure_ascii=False, indent=2)
-    print(f"\n{len(all_links)} {favs_type} saved to {favs_json}.")
+    if len(all_links):
+        with open(favs_json, "w", encoding="utf-8") as f:
+            json.dump(all_links, f, ensure_ascii=False, indent=2)
+        print(f"\n{len(all_links)} {favs_type} saved to {favs_json}.")
+
+    pw.__exit__()
 
     return all_links
 
