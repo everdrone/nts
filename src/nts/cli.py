@@ -6,6 +6,7 @@ import sys
 import click
 
 from nts.downloader import download, get_episodes_of_show, get_my_favs
+from nts.utils import PATH_CDN
 
 ## -----------------------------------------------------------------
 EPISODE_REGEX = r".*nts\.live\/shows.+(\/episodes)\/.+"
@@ -30,7 +31,7 @@ download_dir_dflt = osp.expanduser("~/Downloads")
     "--out-dir",
     "-o",
     "output_directory",
-    default=download_dir_dflt,
+    default=PATH_CDN + "-00/0nts",  # download_dir_dflt,
     type=str,
     help="where the files will be downloaded, defaults to ~/Downloads on macOS and %USERPROFILE%\\Downloads",
     metavar="DIR",

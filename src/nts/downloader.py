@@ -41,7 +41,10 @@ def download(
     ## ----------------------------------------------------------
     file_path_pattern = osp.join(save_dir, f"{ntsp.data['file_name']}.**")
     down = True
-    already_down = find_file(file_path_pattern, ["audio", "video"])
+    already_down = find_file(
+        file_path_pattern,
+        ["audio", "video"],
+    )
     if len(already_down) != 0:
         print(f"already got something {already_down}")
         inp = input("overwrite ? (y) ")
@@ -106,6 +109,7 @@ def download(
         file_ext = ".ogg"
 
     ## --------------------------------------------------
+    ## TODO: if only 'embd' & img already present -> rm ?
     image, image_type = get_image(ntsp.data["image_url"])
     if "file" in save_image and image:
         file_img = f"{ntsp.data['file_name']}.{image_type}"
@@ -331,25 +335,18 @@ class NTSParser:
             #     # tmp["embeds"]["tracklist"].pop("results")
             #     print(tmp)
             #     breakpoint()
-        ## ------------------------------------------------
 
         return artists, parsed_artists
 
-    def _mixcloud_try(self):
+    def _mixcloud_api_try(self):
         def get_suffix(day):
             if 10 <= day % 100 <= 20:
-                suffix = "th"
-            else:
-                last_digit = day % 10
-                if last_digit == 1:
-                    suffix = "st"
-                elif last_digit == 2:
-                    suffix = "nd"
-                elif last_digit == 3:
-                    suffix = "rd"
-                else:
-                    suffix = "th"
-            return suffix
+                return "th"
+            return {
+                1: "st",
+                2: "nd",
+                3: "rd",
+            }.get(day % 10, "th")
 
         day = self.data["date"].strftime("%d")
         day += get_suffix(int(day))
@@ -368,33 +365,23 @@ class NTSParser:
         return None
 
     def _get_link(self):
-        # link = self.api_data.get("mixcloud", "") or self.api_data.get("audio_sources", [{"url": ""}])[
-        #     0
-        # ].get("url", "")
-        # if "https://mixcloud" not in link:
-        #     mixcloud_url = self._mixcloud_try()
-        #     if mixcloud_url:
-        #         link = mixcloud_url
-        ## not sure whats for
-        # if "https://mixcloud" in link:
-        #     host = "mixcloud"
-        # elif "https://soundcloud" in link:
-        #     host = "soundcloud"
-
         link = self.api_data.get("mixcloud", "")
         result = safe_get(link)
         if not result.success:
             print(f"mixcloud link {result.status_code} ")
-            link = self.api_data.get("audio_sources", [{"url": ""}])[0].get("url", "")
-            result = safe_get(link)
-            if not result.success:
-                print(f"audio_sources link {result.status_code}")
-                breakpoint()
-        if "https://mixcloud" not in link:
-            mixcloud_url = self._mixcloud_try()
+            mixcloud_url = self._mixcloud_api_try()
             if mixcloud_url:
                 link = mixcloud_url
-                print(f"mixcloud_try succed {link}")
+                print(f"mixcloud_api succed {link}")
+            else:
+                print("mixcloud_api failed")
+                link = self.api_data.get("audio_sources", [{"url": ""}])[0].get(
+                    "url", ""
+                )
+                result = safe_get(link)
+                if not result.success:
+                    print(f"audio_sources link {result.status_code}")
+                    breakpoint()
 
         return link
 

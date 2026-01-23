@@ -16,37 +16,8 @@ from playwright.sync_api import (
 
 ROOT_PATH = os.getenv("PIXI_PROJECT_ROOT", "")
 assert ROOT_PATH
-
-
-def find_file(glob_pattern, mime, ext=""):
-    ret = []
-    for p in glob.glob(glob_pattern):
-        mmime, mext = magic.from_file(p, mime=True).split("/")
-        if mmime == mime and mext == ext:
-            ret.append(p)
-    return ret
-
-    # return [
-    #     p
-    #     for p in glob.glob(glob_pattern)
-    #     if magic.from_file(p, mime=True).split("/")[0] in mime
-    #     and magic.from_file(p, mime=True).split("/")[1] in ext
-    # ]
-
-
-def get_image(image_url: str):
-    image_type = ""
-    image = None
-    if image_url:
-        image = urllib_request.urlopen(image_url)
-        image_type = image.info().get_content_type()  ## image/{format}
-        # image_type = f"{osp.splitext(image_url)[-1]}"
-        image = image.read()
-        print(f"got {image_type} from {image_url}")
-        return image, image_type.split("/")[-1]
-    else:
-        print("no image_url found")
-        return None, ""
+PATH_CDN = os.getenv("PATH_CDN", "")
+assert PATH_CDN
 
 
 class PlaywrightContext:
@@ -95,7 +66,10 @@ class PlaywrightContext:
             page = context.new_page()
             self.goto_retry(page, self.auth_login_url)
             input("Press Enter after logging in...")
-            context.storage_state(path=self.auth_filepath)
+            context.storage_state(
+                path=self.auth_filepath,
+                indexed_db=True,
+            )
             print(f"Auth saved to {self.auth_filepath}")
             context = browser.new_context(
                 storage_state=self.auth_filepath,
@@ -148,6 +122,7 @@ def safe_request(
         RequestResult with success flag, response object, error message, and status code
     """
     if not url:
+        print(f"empty url {url}")
         return RequestResult(success=False)
 
     for attempt in range(max_retries + 1):
@@ -197,7 +172,7 @@ def safe_request(
 
     error_msg = f"All {max_retries + 1} attempts failed for {method.upper()} {url}"
     print(error_msg)
-    return RequestResult(success=False, error=error_msg, status_code=None)
+    return RequestResult(success=False, error=error_msg)
 
 
 def safe_get(
@@ -208,3 +183,48 @@ def safe_get(
     **kwargs,
 ) -> RequestResult:
     return safe_request("get", url, max_retries, delay, timeout, **kwargs)
+
+
+## ---------------------------------------------------------------------------------
+
+
+def find_file(
+    glob_pattern,
+    mime: list,
+    ext="",
+    include_hidden=True,
+    recursive=False,
+):
+    ret = []
+    for p in glob.glob(
+        glob_pattern, include_hidden=include_hidden, recursive=recursive
+    ):
+        mmime, mext = magic.from_file(p, mime=True).split("/")
+        if mmime not in mime:
+            continue
+        if ext:
+            if mext != ext:
+                continue
+        ret.append(p)
+    return ret
+    # return [
+    #     p
+    #     for p in glob.glob(glob_pattern)
+    #     if magic.from_file(p, mime=True).split("/")[0] in mime
+    #     and magic.from_file(p, mime=True).split("/")[1] in ext
+    # ]
+
+
+def get_image(image_url: str):
+    image_type = ""
+    image = None
+    if image_url:
+        image = urllib_request.urlopen(image_url)
+        image_type = image.info().get_content_type()  ## image/{format}
+        # image_type = f"{osp.splitext(image_url)[-1]}"
+        image = image.read()
+        print(f"got {image_type} from {image_url}")
+        return image, image_type.split("/")[-1]
+    else:
+        print("no image_url found")
+        return None, ""
