@@ -36,6 +36,15 @@ download_dir_dflt = osp.expanduser("~/Downloads")
     metavar="DIR",
 )
 @click.option(
+    "--parse-only",
+    "-p",
+    "parse_only",
+    is_flag=True,
+    show_default=True,
+    default=False,
+    help="only parse, no download",
+)
+@click.option(
     "--quiet",
     "-q",
     is_flag=True,
@@ -62,11 +71,11 @@ download_dir_dflt = osp.expanduser("~/Downloads")
     help="reads from my_shows.json if present or directly from https://www.nts.live/my-nts/favourites/shows",
 )
 @click.version_option()
-# @click.option("--version", "-v", is_flag=True, help="print the version number and quit")
 def main(
     args,
     output_directory,
     quiet,
+    parse_only,
     my_episodes,
     my_shows,
 ):
@@ -81,16 +90,16 @@ def main(
             match_sh = re.match(SHOW_REGEX, url)
 
             if match_ep:
-                download(
+                _ = download(
                     url=url,
                     quiet=quiet,
+                    save=not parse_only,
                     save_dir=download_dir,
-                    save_image=["embd"],
+                    save_image=["embd"],  ## file
                 )
 
             elif match_sh:
                 episodes = get_episodes_of_show(match_sh.group(1))
-
                 for ep in episodes:
                     url_matcher(ep)
 
@@ -117,7 +126,6 @@ def main(
     download_dir = osp.abspath(osp.expanduser(output_directory))
     for arg in args:
         if osp.isfile(arg):
-            # check if file
             file = ""
             with open(arg, "r") as f:
                 file = f.read()

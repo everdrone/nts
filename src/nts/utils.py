@@ -1,7 +1,11 @@
 import glob
 import os
+import time
+from typing import NamedTuple
+from urllib import request as urllib_request
 
 import magic
+import requests
 from playwright.sync_api import (
     Browser,
     BrowserContext,
@@ -21,12 +25,28 @@ def find_file(glob_pattern, mime, ext=""):
         if mmime == mime and mext == ext:
             ret.append(p)
     return ret
+
     # return [
     #     p
     #     for p in glob.glob(glob_pattern)
     #     if magic.from_file(p, mime=True).split("/")[0] in mime
     #     and magic.from_file(p, mime=True).split("/")[1] in ext
     # ]
+
+
+def get_image(image_url: str):
+    image_type = ""
+    image = None
+    if image_url:
+        image = urllib_request.urlopen(image_url)
+        image_type = image.info().get_content_type()  ## image/{format}
+        # image_type = f"{osp.splitext(image_url)[-1]}"
+        image = image.read()
+        print(f"got {image_type} from {image_url}")
+        return image, image_type.split("/")[-1]
+    else:
+        print("no image_url found")
+        return None, ""
 
 
 class PlaywrightContext:
@@ -54,7 +74,7 @@ class PlaywrightContext:
             slow_mo=self.slow_mo,
         )
         self.context = self.get_authenticated_context(self.browser)
-        self.page = self.context.new_page()
+        # self.page = self.context.new_page()
         return self
 
     def __exit__(self):
@@ -104,3 +124,87 @@ class PlaywrightContext:
             selector, state="visible", timeout=timeout
         )
         return element
+
+
+class RequestResult(NamedTuple):
+    success: bool
+    response: requests.Response = None
+    error: str = None
+    status_code: int = None
+
+
+def safe_request(
+    method: str,
+    url: str,
+    max_retries: int = 4,
+    delay: float = 5.0,
+    timeout: int = 10,
+    **kwargs,
+) -> RequestResult:
+    """
+    request wrapper
+
+    Returns:
+        RequestResult with success flag, response object, error message, and status code
+    """
+    if not url:
+        return RequestResult(success=False)
+
+    for attempt in range(max_retries + 1):
+        try:
+            response = requests.request(method.upper(), url, timeout=timeout, **kwargs)
+
+            if response.status_code < 400:
+                return RequestResult(
+                    success=True, response=response, status_code=response.status_code
+                )
+
+            if response.status_code == 404:
+                error_msg = f"404 Not Found: {url}"
+            elif response.status_code == 403:
+                error_msg = f"403 Forbidden: Access denied for {url}"
+            elif response.status_code == 429:
+                error_msg = f"429 Too Many Requests: Rate limited for {url}"
+            else:
+                error_msg = f"HTTP {response.status_code}: Request failed for {url}"
+
+            print(f"{error_msg}, attempt {attempt + 1}/{max_retries + 1}")
+
+            if 400 <= response.status_code < 500:
+                return RequestResult(
+                    success=False,
+                    response=response,
+                    error=error_msg,
+                    status_code=response.status_code,
+                )
+
+        except requests.exceptions.Timeout:
+            error_msg = f"Timeout on attempt {attempt + 1}/{max_retries + 1} for {url}"
+            print(error_msg)
+        except requests.exceptions.ConnectionError:
+            error_msg = (
+                f"Connection error on attempt {attempt + 1}/{max_retries + 1} for {url}"
+            )
+            print(error_msg)
+        except requests.exceptions.RequestException as e:
+            error_msg = (
+                f"Request error on attempt {attempt + 1}/{max_retries + 1}: {str(e)}"
+            )
+            print(error_msg)
+
+        if attempt < max_retries:
+            time.sleep(delay)
+
+    error_msg = f"All {max_retries + 1} attempts failed for {method.upper()} {url}"
+    print(error_msg)
+    return RequestResult(success=False, error=error_msg, status_code=None)
+
+
+def safe_get(
+    url: str,
+    max_retries: int = 4,
+    delay: float = 5.0,
+    timeout: int = 10,
+    **kwargs,
+) -> RequestResult:
+    return safe_request("get", url, max_retries, delay, timeout, **kwargs)

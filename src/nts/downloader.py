@@ -3,51 +3,37 @@ import json
 import os
 import os.path as osp
 import re
-import urllib
-import urllib.parse
-import urllib.request
+from urllib import parse as urllib_parse
 
 import ffmpeg
 import music_tag
-import requests
 from bs4 import BeautifulSoup
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-from nts.utils import ROOT_PATH, BrowserContext, PlaywrightContext, find_file
+from nts.utils import ROOT_PATH, PlaywrightContext, find_file, get_image, safe_get
 
 
-def get_image(image_url: str, dims="700x700"):
-    image_type = ""
-    image = None
-    if image_url:
-        if "ntslive.co.uk" in image_url:
-            ## https://media3.ntslive.co.uk/resize/100x100/ab1af3ee-cae1-459b-9e81-5afec44f9ad3_1768348800.png
-            ## https://media2.ntslive.co.uk/resize/800x800/ab1af3ee-cae1-459b-9e81-5afec44f9ad3_1768348800.png
-            image_url = (
-                f"https://media2.ntslive.co.uk/resize/{dims}/{image_url.split('/')[-1]}"
-            )
-        image = urllib.request.urlopen(image_url)
-        image_type = image.info().get_content_type()  ## image/{format}
-        # image_type = f"{osp.splitext(image_url)[-1]}"
-        image = image.read()
-        print(f"got {image_type} from {image_url}")
-        return image, image_type.split("/")[-1]
-    else:
-        print("no image_url found")
-        return None, ""
-
-
-def download(url, quiet, save_dir, save=True, save_image: list = ["embd", "file"]):
+def download(
+    url,
+    quiet,
+    save_dir,
+    save=True,
+    save_image: list = ["embd", "file"],
+):
     """
     save_image: "embd"-> sets artwork / "file" -> downloads into save_dir/file_name.{ext}
     """
 
     ntsp = NTSParser(url)
+    ntsp_req_suc = ntsp.request()
+    if not ntsp_req_suc:
+        print("NTSParser request failed")
+        return False
     ntsp.parse()
 
     if not save:
-        return
+        return False
 
     if not quiet:
         print(f"\ndownloading into: {save_dir}\n")
@@ -86,7 +72,7 @@ def download(url, quiet, save_dir, save=True, save_image: list = ["embd", "file"
             f"found already a file for: {ntsp.data['file_name']}\n\t{' , '.join(files)}"
         )
         breakpoint()
-        return
+        return False
 
     file = files[0]
     file_path = osp.join(save_dir, file)
@@ -138,7 +124,7 @@ def download(url, quiet, save_dir, save=True, save_image: list = ["embd", "file"
     if not down and not updt:
         inp = input("reset metadata ? (y) ")
         if inp.lower() != "y":
-            return
+            return False
 
     set_metadata(file_path, ntsp.data, image)
 
@@ -148,18 +134,15 @@ def download(url, quiet, save_dir, save=True, save_image: list = ["embd", "file"
     #     file_name,
     #     css_sel="div.profile-image.visible-desktop img.profile-image__img",
     # )  ##
+    return True
 
 
 class NTSParser:
     def __init__(self, url):
-        nts_url = url
-        page = requests.get(url).content
-        self.bs_data = BeautifulSoup(page, "html.parser")
-        api_url = "https://nts.live/api/v2" + urllib.parse.urlparse(url).path
-        self.api_data = requests.get(api_url).json()
+        self.url = url
 
         self.data = {
-            "url": nts_url,
+            "url": self.url,
             "safe_title": "",
             "date": None,
             "title": "",
@@ -172,6 +155,28 @@ class NTSParser:
             "description": "",
             "link": "",
         }
+
+    def request(self):
+        result = safe_get(self.url)
+        if not result.success:
+            return None
+
+        page = result.response.content
+        self.bs_data = BeautifulSoup(page, "html.parser")
+
+        self.api_url = "https://nts.live/api/v2" + urllib_parse.urlparse(self.url).path
+        result = safe_get(self.api_url)
+        if not result.success:
+            return None
+        self.api_data = result.response.json()
+
+        self.api_show_url = ""
+        for link_d in self.api_data.get("links"):
+            if link_d["rel"] == "show":
+                self.api_show_url = link_d["href"]
+        assert self.api_show_url != self.api_url
+
+        return True
 
     def parse(self):
         print(f"\n\n{'-' * 30}")
@@ -187,7 +192,7 @@ class NTSParser:
 
         self.data["station"] = self.api_data.get("location_long", "London")
 
-        self.data["image_url"] = self.api_data.get("media", {}).get("picture_large", "")
+        self.data["image_url"] = self._get_image_url("medium_large")
 
         # sometimes it's just the date
         date = self.api_data.get("broadcast", "")
@@ -211,7 +216,19 @@ class NTSParser:
         )
 
         print(f"{self.data['file_name']} -- {self.data['link']}")
-        # pprint(f"{self.data}")
+        print(f"{self.data}")
+
+    def _get_image_url(self, size="medium_large"):
+        size = f"picture_{size}"
+        dims = {
+            "picture_large": "1600x1600",
+            "picture_medium_large": "800x800",
+            "picture_medium": "400x400",
+            "picture_small": "200x200",
+            "picture_thumb": "100x100",
+        }
+        assert size in dims.keys()
+        return self.api_data.get("media", {}).get(size, "")
 
     def _parse_tracklist(self):
         tracks = self.api_data.get("embeds", {}).get("tracklist", {}).get("results", [])
@@ -254,7 +271,6 @@ class NTSParser:
                         parsed_artists.append(mp)
         parsed_artists = list(filter(None, parsed_artists))
 
-        breakpoint()
         artists = []
         # TODO: figure out how to replace the code below (only thing keeping beautiful soup around)
         artist_box = self.bs_data.select(".bio-artists")
@@ -262,6 +278,61 @@ class NTSParser:
             artist_box = artist_box[0]
             for anchor in artist_box.find_all("a"):
                 artists.append(anchor.text.strip())
+
+        ## ------------------------------------------------
+        # still using bs4, but with this logic
+        # just a handfull of missing cases in 100+ö.....-ö
+        if len(artists) == 0 and len(parsed_artists) == 0:
+            _artists = []
+
+            ## -----------------
+            ## from show_alias
+            show_alias = self.api_data.get("show_alias", "")
+            if show_alias == "the-nts-guide-to":
+                artists.append("NTS")
+            else:
+                show_alias = " ".join(
+                    [a.lower().capitalize() for a in show_alias.split("-")]
+                )
+                _artists.append(show_alias)
+
+                ## -----------------
+                ## get the text above "See all episodes"
+                link = self.bs_data.find("a", {"class": "bio__show-link"})
+                if link:
+                    container_div = link.find("div")
+                    if container_div:
+                        # First div child should be the show name
+                        show_name_div = container_div.find("div")
+                        if show_name_div:
+                            _artists.append(show_name_div.get_text(strip=True))
+
+                ## a match seems a strong indicator
+                ## better take the one from html
+                if len(_artists) == 2:
+                    if _artists[0].lower() == _artists[1].lower():
+                        artists.append(_artists[1])
+                    elif (
+                        _artists[0].replace(" ", "").lower()
+                        in _artists[1].replace(" ", "").lower()
+                    ):
+                        artists.append(_artists[1])
+                    elif (
+                        _artists[1].replace(" ", "").lower()
+                        in _artists[0].replace(" ", "").lower()
+                    ):
+                        artists.append(_artists[1])
+                print(_artists)
+
+            # if len(artists) == 0 and len(parsed_artists) == 0:
+            #     print(_artists)
+            #     tmp = self.api_data.copy()
+            #     tmp.pop("embeds")
+            #     # tmp["embeds"]["tracklist"].pop("results")
+            #     print(tmp)
+            #     breakpoint()
+        ## ------------------------------------------------
+
         return artists, parsed_artists
 
     def _mixcloud_try(self):
@@ -286,10 +357,10 @@ class NTSParser:
         query = re.sub(r"[-/]", "", title)
         query = re.sub(r"\s+", "+", query)
         query = "https://api.mixcloud.com/search/?q=" + query + "&type=cloudcast"
-        reply = requests.get(query)
-        if reply.status_code != 200:
+        result = safe_get(query)
+        if not result.success:
             return None
-        reply = reply.json()["data"]
+        reply = result.response.json()["data"]
         reply = filter(lambda x: x["user"]["username"] == "NTSRadio", reply)
         for resp in reply:
             if resp["name"] == title:
@@ -311,11 +382,13 @@ class NTSParser:
         #     host = "soundcloud"
 
         link = self.api_data.get("mixcloud", "")
-        if not link or requests.get(link).status_code != 200:
-            print(f"mixcloud link none or 404 {link} ")
+        result = safe_get(link)
+        if not result.success:
+            print(f"mixcloud link {result.status_code} ")
             link = self.api_data.get("audio_sources", [{"url": ""}])[0].get("url", "")
-            if not link or requests.get(link).status_code != 200:
-                print(f"audio_sources link none or 404 {link}")
+            result = safe_get(link)
+            if not result.success:
+                print(f"audio_sources link {result.status_code}")
                 breakpoint()
         if "https://mixcloud" not in link:
             mixcloud_url = self._mixcloud_try()
@@ -335,12 +408,15 @@ def get_episodes_of_show(show_name):
         api_url = (
             f"https://www.nts.live/api/v2/shows/{show_name}/episodes?offset={offset}"
         )
-        res = requests.get(api_url)
+        result = safe_get(api_url)
+        if not result.success:
+            break
         try:
-            res = res.json()
+            res = result.response.json()
         except json.decoder.JSONDecodeError as e:
             print("error parsing api response json:", e)
-            exit(1)
+            break
+
         if count == 0:
             count = int(res["metadata"]["resultset"]["count"])
         offset += int(res["metadata"]["resultset"]["limit"])
@@ -368,7 +444,6 @@ def get_my_favs(url: str) -> list:
     pw.__enter__()
 
     favs_type = url.split("/")[-1]
-
     favs_json = osp.join(ROOT_PATH, f"data/nts_fav_{favs_type}.json")
     if osp.exists(favs_json):
         with open(favs_json) as f:
@@ -388,7 +463,7 @@ def get_my_favs(url: str) -> list:
         container = page.locator("div.my-nts__list-container")
         try:
             container.wait_for(state="visible", timeout=5000)
-        except:
+        except TimeoutError:
             print("Container not found, breaking")
             break
 
@@ -410,7 +485,9 @@ def get_my_favs(url: str) -> list:
         )
 
         for link_info in current_links:
-            if link_info and link_info["href"] not in [l["href"] for l in all_links]:
+            if link_info and link_info["href"] not in [
+                link["href"] for link in all_links
+            ]:
                 all_links.append(link_info)
 
         print(f"Found {len(all_links)} unique links so far")
@@ -428,7 +505,7 @@ def get_my_favs(url: str) -> list:
             page.locator("div.article-list-item").nth(current_count).wait_for(
                 state="attached", timeout=5000
             )
-        except:
+        except TimeoutError:
             print("No new items appeared after scrolling, stopping")
             break
 
