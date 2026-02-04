@@ -1,10 +1,16 @@
 import glob
 import os
+import os.path as osp
 import time
 from typing import NamedTuple
 from urllib import request as urllib_request
 
-import magic
+try:
+    import magic
+except ImportError(magic):
+    ## falback to simple .ext check for now
+    pass
+
 import requests
 from playwright.sync_api import (
     Browser,
@@ -186,6 +192,11 @@ def safe_get(
 
 
 ## ---------------------------------------------------------------------------------
+def safe_import(module_name):
+    try:
+        return __import__(module_name)
+    except ImportError:
+        return None
 
 
 def find_file(
@@ -194,25 +205,31 @@ def find_file(
     ext="",
     include_hidden=True,
     recursive=False,
+    mime_ext = ['webp', 'ogg', 'm4a']
 ):
+    # magic = safe_import(magic)
+    # if not magic:
+    #     pass
+
     ret = []
     for p in glob.glob(
         glob_pattern, include_hidden=include_hidden, recursive=recursive
     ):
-        mmime, mext = magic.from_file(p, mime=True).split("/")
-        if mmime not in mime:
-            continue
-        if ext:
-            if mext != ext:
+
+        if 'magic' in globals():
+            mmime, mext = magic.from_file(p, mime=True).split("/")
+            if mmime not in mime:
                 continue
+            if ext:
+                if mext != ext:
+                    continue
+        else:
+            _, ext = osp.splitext(osp.basename(p))
+            if ext.replace(".","") not in mime_ext:
+                continue
+
         ret.append(p)
     return ret
-    # return [
-    #     p
-    #     for p in glob.glob(glob_pattern)
-    #     if magic.from_file(p, mime=True).split("/")[0] in mime
-    #     and magic.from_file(p, mime=True).split("/")[1] in ext
-    # ]
 
 
 def get_image(image_url: str):

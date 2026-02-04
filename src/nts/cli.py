@@ -31,7 +31,7 @@ download_dir_dflt = osp.expanduser("~/Downloads")
     "--out-dir",
     "-o",
     "output_directory",
-    default=PATH_CDN + "-00/0nts",  # download_dir_dflt,
+    default= download_dir_dflt,
     type=str,
     help="where the files will be downloaded, defaults to ~/Downloads on macOS and %USERPROFILE%\\Downloads",
     metavar="DIR",

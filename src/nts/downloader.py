@@ -356,12 +356,14 @@ class NTSParser:
         query = "https://api.mixcloud.com/search/?q=" + query + "&type=cloudcast"
         result = safe_get(query)
         if not result.success:
+            print(f"mixcloud_api failed {query}")
             return None
         reply = result.response.json()["data"]
         reply = filter(lambda x: x["user"]["username"] == "NTSRadio", reply)
         for resp in reply:
             if resp["name"] == title:
                 return resp["url"]
+        print(f"mixcloud_api failed {query}")
         return None
 
     def _get_link(self):
@@ -374,7 +376,6 @@ class NTSParser:
                 link = mixcloud_url
                 print(f"mixcloud_api succed {link}")
             else:
-                print("mixcloud_api failed")
                 link = self.api_data.get("audio_sources", [{"url": ""}])[0].get(
                     "url", ""
                 )
