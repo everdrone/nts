@@ -20,10 +20,8 @@ from playwright.sync_api import (
     sync_playwright,
 )
 
-ROOT_PATH = os.getenv("PIXI_PROJECT_ROOT", "")
+ROOT_PATH = os.getenv('PIXI_PROJECT_ROOT', '')
 assert ROOT_PATH
-PATH_CDN = os.getenv("PATH_CDN", "")
-assert PATH_CDN
 
 
 class PlaywrightContext:
@@ -31,9 +29,9 @@ class PlaywrightContext:
         self,
         headless: bool = False,
         slow_mo: int = 150,
-        auth_filepath: str = "",
-        auth_login_url: str = "",
-        viewport: ViewportSize = {"width": int(1918 / 2), "height": int(1029)},
+        auth_filepath: str = '',
+        auth_login_url: str = '',
+        viewport: ViewportSize = {'width': int(1918 / 2), 'height': int(1029)},
     ):
         self.headless = headless
         self.slow_mo = slow_mo
@@ -61,22 +59,22 @@ class PlaywrightContext:
 
     def get_authenticated_context(self, browser: Browser):
         if os.path.exists(self.auth_filepath):
-            print("Found existing auth — restoring session...")
+            print('Found existing auth — restoring session...')
             context = browser.new_context(
                 storage_state=self.auth_filepath,
                 viewport=self.viewport,
             )
         elif self.auth_login_url:
-            print("No auth found — please log in.")
+            print('No auth found — please log in.')
             context = browser.new_context()
             page = context.new_page()
             self.goto_retry(page, self.auth_login_url)
-            input("Press Enter after logging in...")
+            input('Press Enter after logging in...')
             context.storage_state(
                 path=self.auth_filepath,
                 indexed_db=True,
             )
-            print(f"Auth saved to {self.auth_filepath}")
+            print(f'Auth saved to {self.auth_filepath}')
             context = browser.new_context(
                 storage_state=self.auth_filepath,
                 viewport=self.viewport,
@@ -91,17 +89,17 @@ class PlaywrightContext:
                 result = page.goto(url, **kwargs)
                 return result
             except Exception as e:
-                print(f"Attempt {attempt} failed: {e}")
+                print(f'Attempt {attempt} failed: {e}')
                 if attempt == max_retries:
                     return
-                print("Retrying...")
+                print('Retrying...')
 
     def find_element(self, selector: str, timeout: int = 30000):
-        if not hasattr(self, "pw_ctx") or not self.page:
-            raise RuntimeError("Page not initialized. Call get_sourced first.")
+        if not hasattr(self, 'pw_ctx') or not self.page:
+            raise RuntimeError('Page not initialized. Call get_sourced first.')
 
         element = self.page.wait_for_selector(
-            selector, state="visible", timeout=timeout
+            selector, state='visible', timeout=timeout
         )
         return element
 
@@ -128,7 +126,7 @@ def safe_request(
         RequestResult with success flag, response object, error message, and status code
     """
     if not url:
-        print(f"empty url {url}")
+        print(f'empty url {url}')
         return RequestResult(success=False)
 
     for attempt in range(max_retries + 1):
@@ -141,15 +139,15 @@ def safe_request(
                 )
 
             if response.status_code == 404:
-                error_msg = f"404 Not Found: {url}"
+                error_msg = f'404 Not Found: {url}'
             elif response.status_code == 403:
-                error_msg = f"403 Forbidden: Access denied for {url}"
+                error_msg = f'403 Forbidden: Access denied for {url}'
             elif response.status_code == 429:
-                error_msg = f"429 Too Many Requests: Rate limited for {url}"
+                error_msg = f'429 Too Many Requests: Rate limited for {url}'
             else:
-                error_msg = f"HTTP {response.status_code}: Request failed for {url}"
+                error_msg = f'HTTP {response.status_code}: Request failed for {url}'
 
-            print(f"{error_msg}, attempt {attempt + 1}/{max_retries + 1}")
+            print(f'{error_msg}, attempt {attempt + 1}/{max_retries + 1}')
 
             if 400 <= response.status_code < 500:
                 return RequestResult(
@@ -160,23 +158,23 @@ def safe_request(
                 )
 
         except requests.exceptions.Timeout:
-            error_msg = f"Timeout on attempt {attempt + 1}/{max_retries + 1} for {url}"
+            error_msg = f'Timeout on attempt {attempt + 1}/{max_retries + 1} for {url}'
             print(error_msg)
         except requests.exceptions.ConnectionError:
             error_msg = (
-                f"Connection error on attempt {attempt + 1}/{max_retries + 1} for {url}"
+                f'Connection error on attempt {attempt + 1}/{max_retries + 1} for {url}'
             )
             print(error_msg)
         except requests.exceptions.RequestException as e:
             error_msg = (
-                f"Request error on attempt {attempt + 1}/{max_retries + 1}: {str(e)}"
+                f'Request error on attempt {attempt + 1}/{max_retries + 1}: {str(e)}'
             )
             print(error_msg)
 
         if attempt < max_retries:
             time.sleep(delay)
 
-    error_msg = f"All {max_retries + 1} attempts failed for {method.upper()} {url}"
+    error_msg = f'All {max_retries + 1} attempts failed for {method.upper()} {url}'
     print(error_msg)
     return RequestResult(success=False, error=error_msg)
 
@@ -188,7 +186,7 @@ def safe_get(
     timeout: int = 10,
     **kwargs,
 ) -> RequestResult:
-    return safe_request("get", url, max_retries, delay, timeout, **kwargs)
+    return safe_request('get', url, max_retries, delay, timeout, **kwargs)
 
 
 ## ---------------------------------------------------------------------------------
@@ -202,10 +200,10 @@ def safe_import(module_name):
 def find_file(
     glob_pattern,
     mime: list,
-    ext="",
+    ext='',
     include_hidden=True,
     recursive=False,
-    mime_ext = ['webp', 'ogg', 'm4a']
+    mime_ext=['webp', 'ogg', 'm4a'],
 ):
     # magic = safe_import(magic)
     # if not magic:
@@ -215,9 +213,8 @@ def find_file(
     for p in glob.glob(
         glob_pattern, include_hidden=include_hidden, recursive=recursive
     ):
-
         if 'magic' in globals():
-            mmime, mext = magic.from_file(p, mime=True).split("/")
+            mmime, mext = magic.from_file(p, mime=True).split('/')
             if mmime not in mime:
                 continue
             if ext:
@@ -225,7 +222,7 @@ def find_file(
                     continue
         else:
             _, ext = osp.splitext(osp.basename(p))
-            if ext.replace(".","") not in mime_ext:
+            if ext.replace('.', '') not in mime_ext:
                 continue
 
         ret.append(p)
@@ -233,15 +230,15 @@ def find_file(
 
 
 def get_image(image_url: str):
-    image_type = ""
+    image_type = ''
     image = None
     if image_url:
         image = urllib_request.urlopen(image_url)
         image_type = image.info().get_content_type()  ## image/{format}
         # image_type = f"{osp.splitext(image_url)[-1]}"
         image = image.read()
-        print(f"got {image_type} from {image_url}")
-        return image, image_type.split("/")[-1]
+        print(f'got {image_type} from {image_url}')
+        return image, image_type.split('/')[-1]
     else:
-        print("no image_url found")
-        return None, ""
+        print('no image_url found')
+        return None, ''

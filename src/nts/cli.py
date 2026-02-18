@@ -6,70 +6,69 @@ import sys
 import click
 
 from nts.downloader import download, get_episodes_of_show, get_my_favs
-from nts.utils import PATH_CDN
 
 ## -----------------------------------------------------------------
-EPISODE_REGEX = r".*nts\.live\/shows.+(\/episodes)\/.+"
-SHOW_REGEX = r".*nts\.live\/shows\/([^/]+)$"
+EPISODE_REGEX = r'.*nts\.live\/shows.+(\/episodes)\/.+'
+SHOW_REGEX = r'.*nts\.live\/shows\/([^/]+)$'
 # MY_REGEX = r".*nts\.live\/my-nts(?:\/.*)?$"
 ## --------------------
 # defaults to darwin
-download_dir_dflt = "~/Downloads"
-if sys.platform.startswith("win32"):
-    download_dir_dflt = "%USERPROFILE%\\Downloads\\"
-download_dir_dflt = osp.expanduser("~/Downloads")
+download_dir_dflt = '~/Downloads'
+if sys.platform.startswith('win32'):
+    download_dir_dflt = '%USERPROFILE%\\Downloads\\'
+download_dir_dflt = osp.expanduser('~/Downloads')
 ## --------------------
 
 
 @click.command()
 @click.argument(
-    "args",
+    'args',
     nargs=-1,
     # required=True,
 )
 @click.option(
-    "--out-dir",
-    "-o",
-    "output_directory",
-    default= download_dir_dflt,
+    '--out-dir',
+    '-o',
+    'output_directory',
+    default=download_dir_dflt,
     type=str,
-    help="where the files will be downloaded, defaults to ~/Downloads on macOS and %USERPROFILE%\\Downloads",
-    metavar="DIR",
+    help='where the files will be downloaded, defaults to ~/Downloads on macOS and %USERPROFILE%\\Downloads',
+    metavar='DIR',
 )
 @click.option(
-    "--parse-only",
-    "-p",
-    "parse_only",
+    '--parse-only',
+    '-p',
+    'parse_only',
     is_flag=True,
     show_default=True,
     default=False,
-    help="only parse, no download",
+    help='only parse, no download',
 )
 @click.option(
-    "--quiet",
-    "-q",
+    '--quiet',
+    '-q',
     is_flag=True,
     show_default=True,
     default=False,
-    help="only print errors",
+    help='only print errors',
 )
 @click.option(
-    "--my-episodes",
-    "-mye",
-    "my_episodes",
+    '--my-episodes',
+    '-mye',
+    'my_episodes',
     is_flag=True,
     show_default=True,
     default=False,
-    help="reads from my_episodes.json if present or directly from https://www.nts.live/my-nts/favourites/episodes",
+    help='reads from my_episodes.json if present or directly from https://www.nts.live/my-nts/favourites/episodes',
 )
 @click.option(
-    "--my-shows",
-    "-mys",
-    "my_shows",
+    '--my-shows',
+    '-mys',
+    'my_shows',
     is_flag=True,
     show_default=True,
     default=False,
-    help="reads from my_shows.json if present or directly from https://www.nts.live/my-nts/favourites/shows",
+    help='reads from my_shows.json if present or directly from https://www.nts.live/my-nts/favourites/shows',
 )
 @click.version_option()
 def main(
@@ -96,7 +95,7 @@ def main(
                     quiet=quiet,
                     save=not parse_only,
                     save_dir=download_dir,
-                    save_image=["embd"],  ## file
+                    save_image=['embd'],  ## file
                 )
 
             elif match_sh:
@@ -105,37 +104,37 @@ def main(
                     url_matcher(ep)
 
             else:
-                print(f"{url} is not an NTS url.\n")
-                raise ValueError(f"Invalid NTS URL: {url}")
+                print(f'{url} is not an NTS url.\n')
+                raise ValueError(f'Invalid NTS URL: {url}')
 
     ## -----------------------------
     if my_episodes:
-        episodes = get_my_favs("https://www.nts.live/my-nts/favourites/episodes")
+        episodes = get_my_favs('https://www.nts.live/my-nts/favourites/episodes')
         # { "href": "..", "title": "..","date": "22 Apr 2024",}
-        download_dir = osp.join(download_dir, "myeps")
+        download_dir = osp.join(download_dir, 'myeps')
         for ep in episodes:
-            url_matcher(ep["href"])
+            url_matcher(ep['href'])
 
     if my_shows:
-        shows = get_my_favs("https://www.nts.live/my-nts/favourites/shows")
+        shows = get_my_favs('https://www.nts.live/my-nts/favourites/shows')
         # { "href": "..", "title": "..","date": "22 Apr 2024",}
-        download_dir = osp.join(download_dir, "myshows")
+        download_dir = osp.join(download_dir, 'myshows')
         for show in shows:
-            url_matcher(show["href"])
+            url_matcher(show['href'])
     ## -----------------------------
 
     download_dir = osp.abspath(osp.expanduser(output_directory))
     for arg in args:
         if osp.isfile(arg):
-            file = ""
-            with open(arg, "r") as f:
+            file = ''
+            with open(arg, 'r') as f:
                 file = f.read()
-            lines = filter(None, file.split("\n"))
+            lines = filter(None, file.split('\n'))
             for line in lines:
                 url_matcher(line)
         else:
             url_matcher(arg)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

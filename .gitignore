@@ -135,3 +135,4 @@ links.txt
 !.pixi/config.toml
 
 data/*
+.zed
