@@ -129,3 +129,10 @@ dmypy.json
 .pyre/
 
 links.txt
+
+# pixi environments
+.pixi/*
+!.pixi/config.toml
+
+data/*
+.zed
