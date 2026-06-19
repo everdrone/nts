@@ -1,8 +1,21 @@
+import re
 import setuptools
+
+
+def get_version():
+    # single source of truth: nts/downloader.py's __version__ (also what
+    # `nts --version` prints). read it without importing, so the build doesn't
+    # require the runtime dependencies to be installed.
+    with open("nts/downloader.py", encoding="utf-8") as f:
+        match = re.search(r'^__version__\s*=\s*[\'"]([^\'"]+)[\'"]', f.read(), re.M)
+    if not match:
+        raise RuntimeError("could not find __version__ in nts/downloader.py")
+    return match.group(1)
+
 
 setuptools.setup(
     name="nts-everdrone",
-    version="1.4.0",
+    version=get_version(),
     author="Giorgio Tropiano",
     author_email="giorgiotropiano@gmail.com",
     description="NTS Radio downloader tool",
