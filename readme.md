@@ -58,3 +58,14 @@ To change the output directory use the `--out-dir` option, or the `-o` shorthand
 ```sh
 nts -o ~/Desktop/NTS links.txt
 ```
+
+## Development
+
+Run the test suite with [pytest](https://docs.pytest.org). The integration
+tests need `ffmpeg` on your `PATH` (they are skipped otherwise).
+
+```sh
+pip3 install -r requirements-dev.txt
+pip3 install -e .
+pytest
+```
