@@ -8,6 +8,7 @@ import json
 import mutagen
 import requests
 from yt_dlp import YoutubeDL
+from yt_dlp.utils import DownloadError
 from cssutils import parseStyle
 from bs4 import BeautifulSoup
 import ffmpeg
@@ -65,17 +66,22 @@ def download(url, quiet, save_dir, albumize, save=True):
     parsed = parse_nts_data(bs, api_data)
     parsed['url'] = nts_url
 
-    link = api_data.get('mixcloud', '') or api_data.get('audio_sources', [{'url': ''}])[0].get('url', '')
-
-    if 'https://mixcloud' not in link:
+    # gather every available audio source so we can fall back across hosts if
+    # one is unavailable (e.g. mixcloud is geoblocked in some countries)
+    links = []
+    mixcloud_link = api_data.get('mixcloud', '')
+    if mixcloud_link:
+        links.append(mixcloud_link)
+    else:
         mixcloud_url = mixcloud_try(parsed)
         if mixcloud_url:
-            link = mixcloud_url
-
-    if 'https://mixcloud' in link:
-        host = 'mixcloud'
-    elif 'https://soundcloud' in link:
-        host = 'soundcloud'
+            links.append(mixcloud_url)
+    for source in api_data.get('audio_sources', []):
+        source_url = source.get('url', '')
+        if source_url:
+            links.append(source_url)
+    # de-duplicate while preserving order
+    links = list(dict.fromkeys(links))
 
     # get album art. If the one on mixcloud is available, use it. Otherwise,
     # fall back to the nts website.
@@ -97,8 +103,19 @@ def download(url, quiet, save_dir, albumize, save=True):
             'outtmpl': os.path.join(save_dir, f'{file_name}.%(ext)s'),
             'quiet': quiet
         }
-        with YoutubeDL(ydl_opts) as ydl:
-            ydl.download([link])
+        downloaded = False
+        for link in links:
+            try:
+                with YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([link])
+                downloaded = True
+                break
+            except DownloadError as e:
+                if not quiet:
+                    print(f'failed to download from {link}: {e}')
+        if not downloaded:
+            print('could not download from any available source.')
+            return parsed
 
         # get the downloaded file
         files = os.listdir(save_dir)
