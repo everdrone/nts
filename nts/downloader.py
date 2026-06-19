@@ -157,8 +157,13 @@ def parse_nts_data(bs, api_data):
     image_url = api_data.get('media', {}).get('picture_large', '')
 
     # sometimes it's just the date
-    date = api_data.get('broadcast', '')
-    date = datetime.datetime.fromisoformat(date)
+    broadcast = api_data.get('broadcast', '')
+    try:
+        date = datetime.datetime.fromisoformat(broadcast)
+    except (ValueError, TypeError):
+        # broadcast missing or malformed: fall back to a sentinel so one bad
+        # episode doesn't crash the whole run
+        date = datetime.datetime(1970, 1, 1)
 
     # genres
     genres = list(filter(lambda x: x != '', map(lambda x: x.get('value', ''), api_data.get('genres', []))))
@@ -220,18 +225,17 @@ def parse_artists(title, bs):
     # get other artists after the w/
     if parsed_artists:
         more_people = re.sub(r'^.+?(?:w\/|with)(.+?)(?=\sand\s|,|&|\s-\s)', '',
-                             title, re.IGNORECASE)
+                             title, flags=re.IGNORECASE)
         if more_people == title:
             # no more people
             more_people = ''
         if not re.match(r'^\s*-\s', more_people):
             # split if separators are encountered
-            more_people = re.split(r',|\sand\s|&', more_people, re.IGNORECASE)
+            more_people = re.split(r',|\sand\s|&', more_people, flags=re.IGNORECASE)
             # append to array
             if more_people:
                 for mp in more_people:
-                    mp.strip()
-                    parsed_artists.append(mp)
+                    parsed_artists.append(mp.strip())
     parsed_artists = list(filter(None, parsed_artists))
     # artists
     artists = []
@@ -369,7 +373,9 @@ def set_metadata_album(save_dir, file, parsed, image, image_type):
     for i in range(len(tracks)):
         nfile = os.path.join(apath,unsafe_char(tracks[i]['name'])+".ogg")
         if i == len(tracks)-1:
-            start=ts[i-1]['offset']+ts[i-1]['duration']
+            # last track runs from its own offset to the end of the file
+            # (ts[i-1] would wrap to ts[-1] and break for a single track)
+            start=ts[i]['offset']
             ffmpeg.input(file,ss=start).output(nfile, acodec='copy').run()
         else:
             ffmpeg.input(file,ss=ts[i]['offset'],t=ts[i]['duration']).output(nfile, acodec='copy').run()

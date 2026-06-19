@@ -126,3 +126,43 @@ def test_albumize_falls_back_when_no_timestamps(tmp_path, image_bytes):
     downloader.set_metadata_album(str(tmp_path), "ep.ogg", parsed, image_bytes, "image/png")
     assert not (tmp_path / "Optimo").exists()
     assert (tmp_path / "ep.ogg").exists()
+
+
+@requires_ffmpeg
+def test_albumize_no_intro_when_first_offset_zero(tmp_path, image_bytes):
+    """First track at offset 0 -> no intro file, numbering starts at 1."""
+    parsed = make_parsed(
+        tracks=ALBUM_TRACKS,
+        timestamps=[{"offset": 0, "duration": 3},
+                    {"offset": 3, "duration": 3},
+                    {"offset": 6, "duration": 3}],
+    )
+    make_ogg(str(tmp_path / "ep.ogg"), 10)
+
+    downloader.set_metadata_album(str(tmp_path), "ep.ogg", parsed, image_bytes, "image/png")
+
+    names = sorted(p.name for p in (tmp_path / "Optimo").iterdir())
+    assert names == ["Lullaby.ogg", "Second.ogg", "Third.ogg"]  # no intro.ogg
+    files = _load_album(tmp_path)
+    assert int(files["Lullaby.ogg"]["tracknumber"]) == 1
+    assert int(files["Third.ogg"]["tracknumber"]) == 3
+    for f in files.values():
+        assert int(f["totaltracks"]) == 3  # no intro counted
+
+
+@requires_ffmpeg
+def test_albumize_single_track_keeps_full_audio(tmp_path, image_bytes):
+    """Regression: the last-track start used ts[i-1], which wraps to ts[-1]
+    for a single track and dropped the start of the only track."""
+    parsed = make_parsed(
+        tracks=[{"name": "Only", "artist": "Solo"}],
+        timestamps=[{"offset": 2, "duration": 3}],  # intro 0..2, track 2..end
+    )
+    make_ogg(str(tmp_path / "ep.ogg"), 8)
+
+    downloader.set_metadata_album(str(tmp_path), "ep.ogg", parsed, image_bytes, "image/png")
+
+    only = music_tag.load_file(str(tmp_path / "Optimo" / "Only.ogg"))
+    # track starts at offset 2 of an 8s file -> ~6s, not ~3s (which the
+    # wrap-around bug would have produced by starting at 2+3=5)
+    assert float(only["#length"].value) > 5.0

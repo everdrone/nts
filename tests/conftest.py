@@ -22,17 +22,26 @@ FFMPEG = shutil.which("ffmpeg")
 requires_ffmpeg = pytest.mark.skipif(FFMPEG is None, reason="ffmpeg not installed")
 
 
-def make_ogg(path, seconds):
-    """Generate a silent Opus-in-Ogg file of the given length."""
+_CODEC_BY_EXT = {".ogg": "libopus", ".m4a": "aac", ".mp3": "libmp3lame"}
+
+
+def make_audio(path, seconds):
+    """Generate a silent audio file; codec is inferred from the extension."""
+    ext = os.path.splitext(path)[1].lower()
     subprocess.run(
         [
             FFMPEG, "-v", "quiet", "-y",
             "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
-            "-t", str(seconds), "-c:a", "libopus", path,
+            "-t", str(seconds), "-c:a", _CODEC_BY_EXT[ext], path,
         ],
         check=True,
     )
     return path
+
+
+def make_ogg(path, seconds):
+    """Generate a silent Opus-in-Ogg file of the given length."""
+    return make_audio(path, seconds)
 
 
 def has_artwork(path):

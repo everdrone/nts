@@ -103,6 +103,20 @@ def test_parse_artists_from_title(empty_soup):
     assert "JG Wilkes" in parsed_artists
 
 
+def test_parse_artists_splits_all_comma_separated(empty_soup):
+    """Regression: re.IGNORECASE was passed as maxsplit, capping splits at 2."""
+    _, parsed_artists = downloader.parse_artists("Show w/ A, B, C, D", empty_soup)
+    assert parsed_artists == ["A", "B", "C", "D"]
+
+
+def test_parse_artists_separator_is_case_insensitive(empty_soup):
+    """Regression: re.IGNORECASE was passed as the count/maxsplit arg, so an
+    uppercase 'AND' separator was never matched."""
+    _, parsed_artists = downloader.parse_artists(
+        "Mix w/ Alice and Bob AND Carol", empty_soup)
+    assert parsed_artists == ["Alice", "Bob", "Carol"]
+
+
 def test_parse_nts_data_shape(empty_soup, api_data):
     parsed = downloader.parse_nts_data(empty_soup, api_data)
     assert parsed["title"] == "Optimo"
@@ -120,3 +134,17 @@ def test_parse_nts_data_titlecases_dashed_show_alias(empty_soup, api_data):
     api_data["show_alias"] = "carlos-rene"
     parsed = downloader.parse_nts_data(empty_soup, api_data)
     assert parsed["show_alias"] == "Carlos Rene"
+
+
+@pytest.mark.parametrize("broadcast", ["", "not-a-date", None])
+def test_parse_nts_data_tolerates_bad_broadcast(empty_soup, api_data, broadcast):
+    """Regression: a missing/malformed broadcast used to crash fromisoformat."""
+    api_data["broadcast"] = broadcast
+    parsed = downloader.parse_nts_data(empty_soup, api_data)  # must not raise
+    assert isinstance(parsed["date"], datetime.datetime)
+
+
+def test_parse_nts_data_missing_broadcast_key(empty_soup, api_data):
+    del api_data["broadcast"]
+    parsed = downloader.parse_nts_data(empty_soup, api_data)
+    assert isinstance(parsed["date"], datetime.datetime)
