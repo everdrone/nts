@@ -24,6 +24,8 @@ Options:
                         ~/Downloads on macOS and %USERPROFILE%\Downloads
   -v, --version         print the version number and quit
   -q, --quiet           only print errors
+  -a, --albumize        splits show based on track ids and time stamp and tags as an album
+                        ensure track ids and timestamps are on NTS
 ```
 
 Just paste the episode url and it will be downloaded in your Downloads folder.

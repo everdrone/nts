@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 import ffmpeg
 import music_tag
 
-__version__ = '1.3.9'
+__version__ = '1.4.0'
 
 # defaults to darwin
 download_dir = '~/Downloads'
@@ -55,7 +55,7 @@ def mixcloud_try(parsed):
             return resp['url']
     return None
 
-def download(url, quiet, save_dir, save=True):
+def download(url, quiet, save_dir, albumize, save=True):
     nts_url = url
     page = requests.get(url).content
     bs = BeautifulSoup(page, 'html.parser')
@@ -136,8 +136,10 @@ def download(url, quiet, save_dir, save=True):
                     ffmpeg.input(old_file_path).output(new_file_path, acodec='copy').run(overwrite_output=True)
                     os.remove(old_file_path)
                     file_ext = '.ogg'
-
-                set_metadata(os.path.join(save_dir, file), parsed, image, image_type)
+                if not albumize:
+                    set_metadata(os.path.join(save_dir, file), parsed, image, image_type)
+                else:
+                    set_metadata_album(save_dir, file, parsed, image, image_type)
 
     return parsed
 
@@ -165,6 +167,10 @@ def parse_nts_data(bs, api_data):
     tracks = parse_tracklist(api_data)
 
     description = api_data.get('description', '')
+    
+    timestamps = parse_timestamps(api_data)
+
+    show_alias = api_data.get('show_alias', '').replace('-',' ').title()
 
     return {
         'safe_title': safe_title,
@@ -177,6 +183,8 @@ def parse_nts_data(bs, api_data):
         'tracks': tracks,
         'image_url': image_url,
         'description': description,
+        'timestamps': timestamps,
+        'show_alias':show_alias
     }
 
 
@@ -186,6 +194,17 @@ def parse_tracklist(api_data):
     tracks = map(lambda x: {'name': x.get('title', ''), 'artist': x.get('artist', '')}, tracks)
     return list(tracks)
 
+def parse_timestamps(api_data):
+    times = api_data.get('embeds', {}).get('tracklist', {}).get('results', [])
+    timestamps = []
+    for time in times:
+        temp = {'offset': time.get('offset', 0), 'duration': time.get('duration', 0)}
+        if temp['offset'] == None:
+            temp['offset'] = time.get('offset_estimate', 0)
+        if temp['duration'] == None:
+            temp['duration'] = time.get('duration_estimate', 0)
+        timestamps.append(temp)
+    return timestamps
 
 def parse_artists(title, bs):
     # parse artists in the title
@@ -258,6 +277,15 @@ def get_title(parsed):
 def get_tracklist(parsed):
     return '\n'.join(list(map(lambda x: f'{x["name"]} by {x["artist"]}', parsed['tracks'])))
 
+def get_timestamps(parsed):
+    return parsed['timestamps']
+
+def get_tracklist_nof(parsed):
+    return parsed['tracks']
+
+def get_show(parsed):
+    return parsed['show_alias']
+
 def get_date(parsed):
     return f'{parsed["date"].date().isoformat()}'
 
@@ -299,6 +327,55 @@ def set_metadata(file_path, parsed, image, image_type):
     f['comment'] = get_comment(parsed)
 
     f.save()
+
+def set_metadata_album(save_dir, file, parsed, image, image_type):
+    apath = os.path.join(save_dir,parsed["safe_title"])
+    os.mkdir(apath)
+    file = os.path.join(save_dir,file)
+    ts = get_timestamps(parsed)
+    tracks = get_tracklist_nof(parsed)
+    num_tracks = len(tracks) + 2
+    tn_inc = 1
+    if ts[0]['offset'] != 0:
+        nfile = os.path.join(apath,"intro.ogg")
+        ffmpeg.input(file,ss=0,t=ts[0]['offset']).output(nfile, acodec='copy').run()
+        f = music_tag.load_file(nfile)
+        f['tracktitle'] = 'NTS Intro'
+        f['artwork'] = image
+        f['albumartist'] = get_show(parsed)
+        f['compilation'] = 1
+        f['album'] = get_title(parsed)
+        f['artist'] = 'NTS'
+        f.raw['year'] = get_date(parsed)
+        f['genre'] = get_genres(parsed)
+        f['comment'] = get_comment(parsed)
+        f['tracknumber'] = 1
+        f['totaltracks'] = num_tracks
+        f.save()
+        tn_inc += 1
+        
+    for i in range(len(tracks)):
+        nfile = os.path.join(apath,unsafe_char(tracks[i]['name'])+".ogg")
+        if i == len(tracks)-1:
+            start=ts[i-1]['offset']+ts[i-1]['duration']
+            ffmpeg.input(file,ss=start).output(nfile, acodec='copy').run()
+        else:
+            ffmpeg.input(file,ss=ts[i]['offset'],t=ts[i]['duration']).output(nfile).run()
+        f = music_tag.load_file(nfile)
+        f['tracktitle'] = tracks[i]['name']
+        f['artwork'] = image
+        f['albumartist'] = get_show(parsed)
+        f['compilation'] = 1
+        f['album'] = get_title(parsed)
+        f['artist'] = tracks[i]['artist']
+        f.raw['year'] = get_date(parsed)
+        f['genre'] = get_genres(parsed)
+        f['comment'] = get_comment(parsed)
+        f['tracknumber'] = i+tn_inc
+        f['totaltracks'] = num_tracks
+        f.save()
+    print(get_artists(parsed))
+    os.remove(file)
 
 def main():
     episode_regex = r'.*nts\.live\/shows.+(\/episodes)\/.+'
