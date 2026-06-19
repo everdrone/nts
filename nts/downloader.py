@@ -341,11 +341,12 @@ def set_metadata_album(save_dir, file, parsed, image, image_type):
         set_metadata(file, parsed, image, image_type)
         return
     apath = os.path.join(save_dir,parsed["safe_title"])
-    os.mkdir(apath)
+    os.makedirs(apath, exist_ok=True)
     tracks = get_tracklist_nof(parsed)
-    num_tracks = len(tracks) + 2
+    has_intro = ts[0]['offset'] != 0
+    num_tracks = len(tracks) + (1 if has_intro else 0)
     tn_inc = 1
-    if ts[0]['offset'] != 0:
+    if has_intro:
         nfile = os.path.join(apath,"intro.ogg")
         ffmpeg.input(file,ss=0,t=ts[0]['offset']).output(nfile, acodec='copy').run()
         f = music_tag.load_file(nfile)
@@ -369,7 +370,7 @@ def set_metadata_album(save_dir, file, parsed, image, image_type):
             start=ts[i-1]['offset']+ts[i-1]['duration']
             ffmpeg.input(file,ss=start).output(nfile, acodec='copy').run()
         else:
-            ffmpeg.input(file,ss=ts[i]['offset'],t=ts[i]['duration']).output(nfile).run()
+            ffmpeg.input(file,ss=ts[i]['offset'],t=ts[i]['duration']).output(nfile, acodec='copy').run()
         f = music_tag.load_file(nfile)
         f['tracktitle'] = tracks[i]['name']
         f['artwork'] = image
