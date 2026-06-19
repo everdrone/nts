@@ -3,7 +3,7 @@ import os
 import re
 import sys
 from optparse import OptionParser
-import downloader as nts
+from . import downloader as nts
 
 
 def main():

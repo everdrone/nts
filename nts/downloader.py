@@ -167,7 +167,7 @@ def parse_nts_data(bs, api_data):
     tracks = parse_tracklist(api_data)
 
     description = api_data.get('description', '')
-    
+
     timestamps = parse_timestamps(api_data)
 
     show_alias = api_data.get('show_alias', '').replace('-',' ').title()
@@ -198,12 +198,15 @@ def parse_timestamps(api_data):
     times = api_data.get('embeds', {}).get('tracklist', {}).get('results', [])
     timestamps = []
     for time in times:
-        temp = {'offset': time.get('offset', 0), 'duration': time.get('duration', 0)}
-        if temp['offset'] == None:
-            temp['offset'] = time.get('offset_estimate', 0)
-        if temp['duration'] == None:
-            temp['duration'] = time.get('duration_estimate', 0)
-        timestamps.append(temp)
+        # a present-but-null key returns None from .get(), so the default never
+        # fires. fall back to the estimate and finally coalesce None to 0
+        offset = time.get('offset')
+        if offset is None:
+            offset = time.get('offset_estimate')
+        duration = time.get('duration')
+        if duration is None:
+            duration = time.get('duration_estimate')
+        timestamps.append({'offset': offset or 0, 'duration': duration or 0})
     return timestamps
 
 def parse_artists(title, bs):
@@ -329,10 +332,16 @@ def set_metadata(file_path, parsed, image, image_type):
     f.save()
 
 def set_metadata_album(save_dir, file, parsed, image, image_type):
-    apath = os.path.join(save_dir,parsed["safe_title"])
-    os.mkdir(apath)
     file = os.path.join(save_dir,file)
     ts = get_timestamps(parsed)
+    # without per-track timestamps the episode can't be split into an album,
+    # so fall back to tagging it as a single file
+    if not ts or all(t['offset'] == 0 and t['duration'] == 0 for t in ts):
+        print(f'no track timestamps available for "{parsed["title"]}", saving as a single file')
+        set_metadata(file, parsed, image, image_type)
+        return
+    apath = os.path.join(save_dir,parsed["safe_title"])
+    os.mkdir(apath)
     tracks = get_tracklist_nof(parsed)
     num_tracks = len(tracks) + 2
     tn_inc = 1
@@ -353,7 +362,7 @@ def set_metadata_album(save_dir, file, parsed, image, image_type):
         f['totaltracks'] = num_tracks
         f.save()
         tn_inc += 1
-        
+
     for i in range(len(tracks)):
         nfile = os.path.join(apath,unsafe_char(tracks[i]['name'])+".ogg")
         if i == len(tracks)-1:
