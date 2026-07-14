@@ -38,7 +38,7 @@ setuptools.setup(
         'cssutils==2.7.1',
         'ffmpeg-python==0.2.0',
         'music-tag==0.4.3',
-        'pillow==10.4.0',
+        'pillow==12.2.0',
     ],
     python_requires='>=3.7.5',
 )
