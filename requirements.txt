@@ -1,4 +1,4 @@
-yt-dlp==2024.7.25
+yt-dlp==2026.7.4
 beautifulsoup4==4.9.3
 requests==2.32.4
 cssutils==2.7.1
