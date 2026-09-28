@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 import ffmpeg
 import music_tag
 
-__version__ = '1.4.1'
+__version__ = '1.4.2'
 
 # defaults to darwin
 download_dir = '~/Downloads'
@@ -144,6 +144,34 @@ def download(url, quiet, save_dir, albumize, save=True):
     return parsed
 
 
+def parse_date(api_data):
+    # 'broadcast' can be missing or empty, so try other sources before giving up
+    value = api_data.get('broadcast') or ''
+    try:
+        return datetime.datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError:
+        pass
+
+    # episode aliases usually end with the date, e.g. "some-show-9th-march-2021"
+    alias = api_data.get('episode_alias') or ''
+    match = re.search(r'(\d{1,2})(?:st|nd|rd|th)?-([a-z]+)-(\d{4})$', alias)
+    if match:
+        try:
+            return datetime.datetime.strptime(' '.join(match.groups()), '%d %B %Y')
+        except ValueError:
+            pass
+
+    for key in ('updated', 'created'):
+        value = api_data.get(key) or ''
+        try:
+            return datetime.datetime.fromisoformat(value.replace('Z', '+00:00'))
+        except ValueError:
+            pass
+
+    print('warning: could not determine broadcast date, using today\'s date.')
+    return datetime.datetime.now()
+
+
 def parse_nts_data(bs, api_data):
     # title data
     title = api_data.get('name', 'unknown')
@@ -157,8 +185,7 @@ def parse_nts_data(bs, api_data):
     image_url = api_data.get('media', {}).get('picture_large', '')
 
     # sometimes it's just the date
-    date = api_data.get('broadcast', '')
-    date = datetime.datetime.fromisoformat(date)
+    date = parse_date(api_data)
 
     # genres
     genres = list(filter(lambda x: x != '', map(lambda x: x.get('value', ''), api_data.get('genres', []))))
@@ -188,14 +215,21 @@ def parse_nts_data(bs, api_data):
     }
 
 
+def get_tracklist_results(api_data):
+    # unpublished episodes give an empty list instead of a {'results': [...]} dict
+    tracklist = (api_data.get('embeds') or {}).get('tracklist')
+    if not isinstance(tracklist, dict):
+        return []
+    return tracklist.get('results') or []
+
 def parse_tracklist(api_data):
     # tracklist
-    tracks = api_data.get('embeds', {}).get('tracklist', {}).get('results', [])
+    tracks = get_tracklist_results(api_data)
     tracks = map(lambda x: {'name': x.get('title', ''), 'artist': x.get('artist', '')}, tracks)
     return list(tracks)
 
 def parse_timestamps(api_data):
-    times = api_data.get('embeds', {}).get('tracklist', {}).get('results', [])
+    times = get_tracklist_results(api_data)
     timestamps = []
     for time in times:
         # a present-but-null key returns None from .get(), so the default never
