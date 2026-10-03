@@ -3,5 +3,5 @@ beautifulsoup4==4.9.3
 requests==2.32.4
 cssutils==2.7.1
 ffmpeg-python==0.2.0
-pillow==10.4.0
+pillow==12.3.0
 music-tag==0.4.3
