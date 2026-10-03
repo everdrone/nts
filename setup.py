@@ -31,7 +31,7 @@ setuptools.setup(
     license='MIT',
     entry_points={'console_scripts': ['nts=nts.cli:main']},
     install_requires=[
-        'yt-dlp==2024.7.25',
+        'yt-dlp==2026.7.4',
         'beautifulsoup4==4.9.3',
         'mutagen==1.45.1',
         'requests==2.32.4',
